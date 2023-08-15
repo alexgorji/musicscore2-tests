@@ -1,1 +1,1 @@
-This is a repository to test musicscore2 tests after installing it via pip. The tests of musicscore2 and musicxml are copied manually from musicscore2 repository to this one. An githup action is set up to run the tests with python 3.9, 3.10 and 3.11. 
+This is a repository to test musicscore2 tests after installing it via pip. The tests of musicscore2 tests are copied manually from musicscore2 repository to this one. An githup action is set up to run the tests with python 3.9, 3.10 and 3.11. 
