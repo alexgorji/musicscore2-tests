@@ -1,1 +1,1 @@
-This is a private repository to test musicscore2 tests after installing it via pip. The tests of musicscore2 are copied manually from musicscore2 repository to this repository. An gitup action is set up to run the tests. 
+This is a repository to test musicscore2 tests after installing it via pip. The tests of musicscore2 are copied manually from musicscore2 repository to this repository. An gitup action is set up to run the tests. 
