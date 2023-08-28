@@ -1,2 +1,4 @@
-musicscore2
+musicscore2==1.4beta2
 pytest
+xmltodict
+deepdiff
