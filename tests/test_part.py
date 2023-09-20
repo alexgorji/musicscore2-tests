@@ -1,6 +1,6 @@
 import math
+import xml.etree.ElementTree as ET
 from pathlib import Path
-from unittest import skip
 
 import xmltodict
 
@@ -14,7 +14,6 @@ from musictree.quarterduration import QuarterDuration
 from musictree.score import Score
 from musictree.tests.util import IdTestCase, get_xml_elements_diff, XMLsDifferException, get_xml_diff_part, \
     generate_xml_file
-import xml.etree.ElementTree as ET
 
 
 class TestId(IdTestCase):
@@ -68,16 +67,23 @@ class TestPart(IdTestCase):
 
     def test_part_name(self):
         p = Part(id='p1')
-        assert p.name == 'p1'
+        assert p.name == ''
         p = Part(id='p2', name='Part 1')
         assert p.name == 'Part 1'
         p.name = None
-        assert p.name == 'p2'
+        assert p.name == ''
 
     def test_part_and_score_part(self):
         p = Part(id='p1')
         assert isinstance(p.score_part, ScorePart)
         assert p.score_part.xml_object.id == p.xml_object.id
+
+    def test_part_list_multiple_parts(self):
+        score = Score()
+        score.add_part('p1')
+        score.add_part('p2')
+        score.finalize()
+        assert len(score.xml_object.xml_part_list.get_children()) == 2
 
     def test_add_measure(self):
         p = Part('p1')
@@ -107,15 +113,15 @@ class TestPart(IdTestCase):
         p = Part('p1')
         m = p.add_measure()
         assert m.key.show is True
-        m.final_updates()
+        m.finalize()
         assert m.xml_object.xml_attributes.xml_key is not None
         m = p.add_measure()
-        m.final_updates()
+        m.finalize()
         assert m.key.show is False
         m.key = Key(fifths=1)
         assert m.key.show is True
         m = p.add_measure()
-        m.final_updates()
+        m.finalize()
         assert m.key.fifths == 1
         assert m.key.show is False
         assert m.xml_object.xml_attributes.xml_key is None
@@ -132,7 +138,7 @@ class TestPart(IdTestCase):
         assert m.clefs[1].show is False
         m = p.add_measure()
         m.clefs[0].show = True
-        m.final_updates()
+        m.finalize()
         clefs = m.xml_object.xml_attributes.find_children('XMLClef')
         assert len(clefs) == 1
         assert clefs[0].xml_sign.value_ == 'G'
@@ -223,16 +229,16 @@ class TestScorePart(IdTestCase):
 
     def test_score_part_name(self):
         p = Part(id='p1')
-        assert p.score_part.xml_part_name.value_ == p.name == 'p1'
+        assert p.score_part.xml_part_name.value_ == p.name == ''
         p.name = 'Part 1'
         assert p.score_part.xml_part_name.value_ == p.name == 'Part 1'
         p.name = None
-        assert p.score_part.xml_part_name.value_ == p.name == 'p1'
+        assert p.score_part.xml_part_name.value_ == p.name == ''
 
     def test_score_part_to_string(self):
         p = Part(id='p1')
         expected = """<score-part id="p1">
-  <part-name>p1</part-name>
+  <part-name />
 </score-part>
 """
         assert p.score_part.to_string() == expected
@@ -241,7 +247,7 @@ class TestScorePart(IdTestCase):
         p = Part('P1')
         m1 = p.add_measure(time=(3, 4))
         m2 = p.add_measure(time=(2, 4))
-        p.final_updates()
+        p.finalize()
         assert m1.clefs[0].show is True
         assert m2.clefs[0].show is False
 
@@ -285,8 +291,8 @@ class TestScorePart(IdTestCase):
 
         for beat in [b for m in p.get_children() for st in m.get_children() for v in st.get_children() for b in
                      v.get_children()]:
-            beat.quantize_quarter_durations()
-            beat.split_not_writable_chords()
+            beat._quantize_quarter_durations()
+            beat._split_not_writable_chords()
         expected = [QuarterDuration(3, 7), QuarterDuration(2, 7), QuarterDuration(2, 7), QuarterDuration(1, 1),
                     QuarterDuration(4, 5), QuarterDuration(1, 5), QuarterDuration(1, 1)]
         assert [ch.quarter_duration for ch in p.get_chords()] == expected
@@ -441,7 +447,7 @@ class TestAddChordToPart(IdTestCase):
         p.add_chord(ch2, staff_number=2)
         assert ch1.get_staff_number() == 1
         assert ch2.get_staff_number() == 2
-        p.final_updates()
+        p.finalize()
         assert ch1.notes[0].xml_staff.value_ == 1
         assert ch2.notes[0].xml_staff.value_ == 2
 

@@ -1,15 +1,14 @@
-from unittest import TestCase, skip
+from unittest import TestCase
 from unittest.mock import patch, Mock
 
-from musictree.chord import Chord
-from musictree.part import Part
-from musicxml.exceptions import XMLElementChildrenRequired
-from musicxml.xmlelement.xmlelement import *
 from quicktions import Fraction
 
+from musictree.chord import Chord
+from musictree.exceptions import NoteMidiHasNoParentChordError
 from musictree.midi import Midi
 from musictree.note import Note, tie, untie
-from musictree.exceptions import MidiHasNoParentChordError
+from musictree.part import Part
+from musicxml.xmlelement.xmlelement import *
 
 
 class NoteTestCase(TestCase):
@@ -42,7 +41,7 @@ class TestNote(NoteTestCase):
         with self.assertRaises(TypeError):
             Note()
 
-        with self.assertRaises(MidiHasNoParentChordError):
+        with self.assertRaises(NoteMidiHasNoParentChordError):
             Note(midi=Midi(60))
 
     def test_note_init(self):
@@ -349,7 +348,7 @@ class TestNote(NoteTestCase):
         assert len(n.xml_notations.xml_articulations.get_children()) == 0
         assert len(n.xml_notations.xml_technical.get_children()) == 1
 
-        n.update_xml_notations()
+        n._update_xml_notations()
         assert len(n.xml_notations.get_children()) == 1
         assert n.xml_notations.xml_articulations is None
         assert len(n.xml_notations.xml_technical.get_children()) == 1
@@ -359,7 +358,7 @@ class TestNote(NoteTestCase):
         assert n.xml_notations.xml_articulations is None
         assert len(n.xml_notations.xml_technical.get_children()) == 0
 
-        n.update_xml_notations()
+        n._update_xml_notations()
         assert n.xml_notations is None
 
 
@@ -543,7 +542,7 @@ class TestNoteTie(NoteTestCase):
         p = Part('p1')
         ch = Chord(60, 1)
         p.add_chord(ch)
-        ch.final_updates()
+        ch.finalize()
         n = ch.notes[0]
         assert n.up == n.parent_chord
 

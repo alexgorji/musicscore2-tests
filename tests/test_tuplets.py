@@ -2,13 +2,14 @@ from unittest import TestCase
 
 from quicktions import Fraction
 
+from musictree import Part, Time
 from musictree.chord import Chord
 from musictree.measure import Measure
 from musictree.tests.test_beat import create_voice
-from musictree.tests.util import generate_all_quintuplets, generate_all_triplets, generate_all_sextuplets
+from musictree.tests.util import generate_all_quintuplets, generate_all_triplets, generate_all_sextuplets, IdTestCase
 
 
-class TestTuplets(TestCase):
+class TestTuplets(IdTestCase):
 
     def test_simple_triplet(self):
         expected_1 = """<note>
@@ -53,7 +54,7 @@ class TestTuplets(TestCase):
         for c in [ch1, ch2]:
             c.midis[0].accidental.show = False
             m._add_chord(c)
-        m.final_updates()
+        m.finalize()
         assert ch1.notes[0].to_string() == expected_1
         assert ch2.notes[0].to_string() == expected_2
 
@@ -64,7 +65,7 @@ class TestTuplets(TestCase):
         for x in chords:
             m._add_chord(x)
 
-        m.final_updates()
+        m.finalize()
 
         t1, t2 = [ch.notes[0].xml_notations.xml_tuplet for ch in chords]
         assert t1.type == 'start'
@@ -81,7 +82,7 @@ class TestTuplets(TestCase):
             m = Measure(index + 1)
             for q in quintuplet:
                 m._add_chord(Chord(midis=60, quarter_duration=q))
-            m.final_updates()
+            m.finalize()
             measures.append(m)
 
         for m in measures:
@@ -102,8 +103,8 @@ class TestTuplets(TestCase):
         quarter_durations = [Fraction(1, 6), Fraction(5, 6)]
         for q in quarter_durations:
             m1._add_chord(Chord(midis=60, quarter_duration=q))
-        m1.split_not_writable_chords()
-        m1.final_updates()
+        m1._split_not_writable_chords()
+        m1.finalize()
         b = m1.get_voice(staff_number=1, voice_number=1).get_children()[0]
         assert b.get_children() == m1.get_chords()
         n1, n2, n3 = [ch.notes[0] for ch in m1.get_chords()]
@@ -121,8 +122,8 @@ class TestTuplets(TestCase):
         quarter_durations = [Fraction(5, 6), Fraction(1, 6)]
         for q in quarter_durations:
             m1._add_chord(Chord(midis=60, quarter_duration=q))
-        m1.split_not_writable_chords()
-        m1.final_updates()
+        m1._split_not_writable_chords()
+        m1.finalize()
         n1, n2, n3 = [ch.notes[0] for ch in m1.get_chords()]
         assert n1.xml_notations.xml_tuplet.type == 'start'
         assert n3.xml_notations.xml_tuplet.type == 'stop'
@@ -138,8 +139,8 @@ class TestTuplets(TestCase):
             m = Measure(index + 1)
             for q in sextuplet:
                 m._add_chord(Chord(midis=60, quarter_duration=q))
-            m.split_not_writable_chords()
-            m.final_updates()
+            m._split_not_writable_chords()
+            m.finalize()
             measures.append(m)
 
         for m in measures:
@@ -161,8 +162,8 @@ class TestTuplets(TestCase):
         ch1, ch2, ch3 = chords = [Chord(60, 2 / 5), Chord(61, 2 / 5), Chord(62, 1 / 5)]
         for ch in chords:
             beats[0].add_child(ch)
-        v1.up.up.update_divisions()
-        beats[0].final_updates()
+        v1.up.up._update_divisions()
+        beats[0].finalize()
         assert ch1.notes[0].xml_notations.xml_tuplet.type == 'start'
         assert ch1.notes[0].xml_notations.xml_tuplet.bracket == 'yes'
         assert ch1.notes[0].xml_notations.xml_tuplet.number == 1
@@ -175,8 +176,8 @@ class TestTuplets(TestCase):
         beats = v1.update_beats(1)
         for quarter_duration in [1 / 6, 1 / 6, 1 / 6, 1 / 10, 3 / 10, 1 / 10]:
             v1._add_chord(Chord(60, quarter_duration))
-        v1.up.up.update_divisions()
-        beats[0].final_updates()
+        v1.up.up._update_divisions()
+        beats[0].finalize()
         n1, n2, n3, n4, n5, n6 = [ch.notes[0] for ch in v1.get_chords()]
         for n in [n1, n2, n3]:
             assert (n.xml_time_modification.xml_actual_notes.value_, n.xml_time_modification.xml_normal_notes.value_,
@@ -196,9 +197,9 @@ class TestTuplets(TestCase):
         beats = v1.update_beats(1, 1, 1)
         for quarter_duration in [q for group in generate_all_triplets() for q in group]:
             v1._add_chord(Chord(60, quarter_duration))
-        v1.up.up.update_divisions()
+        v1.up.up._update_divisions()
         for index, beat in enumerate(beats):
-            beat.final_updates()
+            beat.finalize()
             if index == 0:
                 for i, c in enumerate(beat.get_children()):
                     beams = c.notes[0].find_children('XMLBeam')
@@ -208,3 +209,104 @@ class TestTuplets(TestCase):
             else:
                 for c in beat.get_children():
                     assert c.notes[0].find_child('XMLBeam') is None
+
+    def test_quarter_triplets(self):
+        m = Measure(1)
+        m.time = Time(3, 2)
+        quarter_durations = [2 / 3, 4 / 3, 4 / 3, 2 / 3, 2 / 3, 2 / 3, 2 / 3]
+        chords = [Chord(60 + i, qd) for i, qd in enumerate(quarter_durations)]
+        [m._add_chord(chord) for chord in chords]
+        m.finalize()
+
+        # check durations
+        notes = [ch.notes[0] for ch in chords]
+        divisions = m.xml_object.xml_attributes.xml_divisions.value_
+        assert divisions == 3
+        assert [n.xml_duration.value_ for n in notes] == [qd * divisions for qd in quarter_durations]
+
+        # check note types
+        assert [n.xml_type.value_ for n in notes] == ['quarter', 'half', 'half',
+                                                      'quarter', 'quarter', 'quarter', 'quarter']
+        # check time modifications
+        """
+        <time-modification>
+          <actual-notes>3</actual-notes>
+          <normal-notes>2</normal-notes>
+          <normal-type>quarter</normal-type>
+        </time-modification>
+        """
+        for n in notes:
+            assert (n.xml_time_modification.xml_actual_notes.value_, n.xml_time_modification.xml_normal_notes.value_,
+                    n.xml_time_modification.xml_normal_type.value_) == (3, 2, 'quarter')
+
+        # check brackets
+        """
+        <notations>
+            <tuplet bracket="yes" number="1" type="start" />
+        </notations>
+        
+        <notations>
+            <tuplet number="1" type="stop" />
+        </notations>
+        """
+        for i, n in enumerate(notes):
+            if i in [0, 2, 4]:
+                tuplet = n.xml_notations.xml_tuplet
+                assert tuplet.bracket == 'yes'
+                assert tuplet.type == 'start'
+            elif i in [1, 3, 6]:
+                tuplet = n.xml_notations.xml_tuplet
+                assert tuplet.type == 'stop'
+            else:
+                assert not n.xml_notations
+
+    def test_quarter_triplets_with_actual_signatures(self):
+        m = Measure(1)
+        m.time = Time(6, 4)
+        m.time.actual_signatures = [1, 2, 1, 2, 1, 2]
+        quarter_durations = [2 / 3, 4 / 3, 4 / 3, 2 / 3, 2 / 3, 2 / 3, 2 / 3]
+        chords = [Chord(60 + i, qd) for i, qd in enumerate(quarter_durations)]
+        [m._add_chord(chord) for chord in chords]
+        m.finalize()
+
+        # check durations
+        notes = [ch.notes[0] for ch in chords]
+        divisions = m.xml_object.xml_attributes.xml_divisions.value_
+        assert divisions == 3
+        assert [n.xml_duration.value_ for n in notes] == [qd * divisions for qd in quarter_durations]
+
+        # check note types
+        assert [n.xml_type.value_ for n in notes] == ['quarter', 'half', 'half',
+                                                      'quarter', 'quarter', 'quarter', 'quarter']
+        # check time modifications
+        """
+        <time-modification>
+          <actual-notes>3</actual-notes>
+          <normal-notes>2</normal-notes>
+          <normal-type>quarter</normal-type>
+        </time-modification>
+        """
+        for n in notes:
+            assert (n.xml_time_modification.xml_actual_notes.value_, n.xml_time_modification.xml_normal_notes.value_,
+                    n.xml_time_modification.xml_normal_type.value_) == (3, 2, 'quarter')
+
+        # check brackets
+        """
+        <notations>
+            <tuplet bracket="yes" number="1" type="start" />
+        </notations>
+
+        <notations>
+            <tuplet number="1" type="stop" />
+        </notations>
+        """
+        for i, n in enumerate(notes):
+            if i in [0, 2, 4]:
+                tuplet = n.xml_notations.xml_tuplet
+                assert tuplet.bracket == 'yes'
+                assert tuplet.type == 'start'
+            elif i in [1, 3, 6]:
+                tuplet = n.xml_notations.xml_tuplet
+                assert tuplet.type == 'stop'
+            else:
+                assert not n.xml_notations

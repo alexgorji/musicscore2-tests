@@ -6,6 +6,7 @@ from musictree.measure import Measure
 from musictree.part import Part
 from musictree.staff import Staff
 from musictree.voice import Voice
+from musicxml import XMLVoice, XMLStaff
 
 
 class TestStaff(TestCase):
@@ -70,9 +71,20 @@ class TestStaff(TestCase):
         m1._add_chord(Chord(midis=[63, 64, 66], quarter_duration=2))
         assert m1.get_staff(1).get_last_pitch_steps_with_accidentals() == {'E', 'F'}
 
-    # @patch('musictree.measure.Measure')
-    # def test_staff_clef(self, mock_measure):
-    #     st = Staff()
-    #     st._parent = mock_measure
-    #     assert st.clef.sign == 'G'
-    #     assert st.clef.line == 2
+    def test_staff_clef(self):
+        st = Staff()
+        assert st.clef is None
+
+    def test_get_staff_number_from_midi(self):
+        part = Part('p1')
+        ch = Chord([60, 70, 80], 2)
+        part.add_chord(ch)
+        ch.midis[0].set_staff_number(2)
+        ch.midis[1].set_staff_number(2)
+        part.finalize()
+
+        for index, n in enumerate(ch.notes):
+            if index in [0, 1]:
+                assert n.xml_object.xml_staff.value_ == 2
+            else:
+                assert not n.xml_object.xml_staff

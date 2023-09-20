@@ -1,13 +1,14 @@
+import inspect
 from unittest import TestCase
 from unittest.mock import patch
 
-from musictree import Chord
-from musicxml.xmlelement.xmlelement import XMLPitch, XMLRest
-
+from musictree import Chord, Part, Time, Score
 from musictree.accidental import Accidental
-from musictree.midi import Midi, C, B, G
-from musictree.note import Note
 from musictree.measure import Measure
+from musictree.midi import Midi
+from musictree.note import Note
+from musictree.tests.util import generate_path, IdTestCase
+from musicxml.xmlelement.xmlelement import XMLPitch, XMLRest, XMLNotehead
 
 
 class TestMidi(TestCase):
@@ -49,20 +50,12 @@ class TestMidi(TestCase):
     def test_midi_accidental_modes(self):
         m = Midi(60)
         assert m.accidental.get_pitch_parameters() == ('C', 0, 4)
-        m.accidental.mode = 'enharmonic_1'
-        assert m.accidental.get_pitch_parameters() == ('B', 1, 3)
-        m.accidental.mode = 'enharmonic_2'
+        m.accidental.mode = 'enharmonic'
+        assert m.accidental.get_pitch_parameters() == ('C', 0, 4)
+        m.accidental.mode = 'force-flat'
         assert m.accidental.get_pitch_parameters() == ('D', -2, 4)
-
-    def test_midi_note(self):
-        m = C(4, 's')
-        assert m.accidental.get_pitch_parameters() == ('C', 1, 4)
-        m = C(0)
-        assert m.accidental.get_pitch_parameters() == ('C', 0, 0)
-        with self.assertRaises(ValueError):
-            B(-1)
-        with self.assertRaises(ValueError):
-            G(9, 's')
+        m.accidental.mode = 'force-sharp'
+        assert m.accidental.get_pitch_parameters() == ('B', 1, 3)
 
     def test_midi_rest(self):
         r = Midi(0)
@@ -103,7 +96,7 @@ class TestMidi(TestCase):
 </pitch>
 """
         assert m.get_pitch_or_rest().to_string() == expected
-        m.accidental.mode = 'enharmonic_2'
+        m.accidental.mode = 'force-flat'
         expected = """<pitch>
   <step>B</step>
   <alter>-2</alter>
@@ -128,12 +121,30 @@ class TestMidi(TestCase):
 
     def test_midi_copy(self):
         m = Midi(61, accidental=Accidental(mode='sharp', show=False))
+        m.add_tie('start')
+        copied = m.__copy__()
+        assert m != copied
+        assert m.value == copied.value
+        assert id(m.accidental) == id(copied.accidental)
+        assert id(m._ties) == id(copied._ties)
+
         copied = m.__deepcopy__()
         assert m != copied
         assert m.value == copied.value
         assert m.accidental != copied.accidental
         assert m.accidental.mode == copied.accidental.mode
         assert m.accidental.show == copied.accidental.show
+        assert id(m._ties) != id(copied._ties)
+        assert m._ties == copied._ties
+
+        copied = m._copy_for_split()
+        assert m != copied
+        assert m.value == copied.value
+        assert m.accidental != copied.accidental
+        assert m.accidental.mode == copied.accidental.mode
+        assert m.accidental.show == copied.accidental.show
+        assert id(m._ties) != id(copied._ties)
+        assert m._ties != copied._ties
 
     @patch('musictree.chord.Chord', spec=Chord)
     def test_midi_up_note(self, mock_chord):
@@ -170,3 +181,43 @@ class TestMidi(TestCase):
         assert m1.is_tied_to_next
         assert m2.is_tied_to_previous
         assert m2.is_tied_to_next
+
+    def test_set_staff_number(self):
+        midi = Midi(60)
+        assert not midi.get_staff_number()
+        midi.set_staff_number(2)
+        assert midi.get_staff_number() == 2
+
+class TestMidiNoteHead(IdTestCase):
+    def test_notehead_property(self):
+        m = Midi(60)
+        m.notehead = 'square'
+        assert isinstance(m.notehead, XMLNotehead)
+        assert m.notehead.value_ == 'square'
+
+    def test_notehead_after_finalize(self):
+        p = Part('p1')
+        ch = Chord(60, 1)
+        ch.midis[0].notehead = 'square'
+        p.add_chord(ch)
+        p.finalize()
+        assert ch.midis[0].parent_note.xml_notehead.value_ == 'square'
+
+    def test_notehead_copy_for_split(self):
+        midi = Midi(60)
+        midi.notehead = 'square'
+        copied = midi._copy_for_split()
+        assert copied.notehead.value_ == 'square'
+
+    def test_midi_notehead_after_split(self):
+        s = Score()
+        p = s.add_part('p1')
+        ch = Chord(60, 3)
+        ch.midis[0].notehead = 'square'
+        p.add_measure(Time(2, 4))
+        p.add_chord(ch)
+        path = generate_path(inspect.currentframe())
+        s.export_xml(path)
+        assert p.get_chords()[-1].midis[0].notehead.value_ == 'square'
+        assert p.get_chords()[-1].midis[0].parent_note.xml_notehead.value_ == 'square'
+

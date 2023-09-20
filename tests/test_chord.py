@@ -1,18 +1,20 @@
 import copy
-from unittest import skip
+from unittest import skip, TestCase
 
 from quicktions import Fraction
 
-from musictree import BassClef
+from musictree import BassClef, Score, Part
 from musictree.accidental import Accidental
 from musictree.beat import Beat
-from musictree.chord import Chord, split_copy, group_chords
-from musictree.exceptions import ChordHasNoParentError, DeepCopyException, ChordNotesAreAlreadyCreatedError
+from musictree.chord import Chord, _split_copy, _group_chords, GraceChord
+from musictree.exceptions import ChordHasNoParentError, DeepCopyException, ChordNotesAreAlreadyCreatedError, \
+    ChordException, MusicTreeException, ChordAddXException, ChordAddXPlacementException
 from musictree.midi import Midi
 from musictree.quarterduration import QuarterDuration
-from musictree.tests.util import ChordTestCase, create_articulation, create_technical, create_ornament
+from musictree.tests.util import ChordTestCase, create_test_objects
 from musictree.util import XML_ARTICULATION_CLASSES, XML_TECHNICAL_CLASSES, XML_DYNAMIC_CLASSES, XML_ORNAMENT_CLASSES, \
-    XML_OTHER_NOTATIONS
+    XML_OTHER_NOTATIONS, XML_DIRECTION_TYPE_CLASSES, XML_ORNAMENT_AND_OTHER_NOTATIONS, \
+    XML_DIRECTION_TYPE_AND_OTHER_NOTATIONS
 from musicxml.xmlelement.xmlelement import *
 
 
@@ -43,9 +45,9 @@ class TestTreeChord(ChordTestCase):
         assert get_chord_midi_values(ch) == [50, 70]
         ch = Chord(0, 1)
         assert get_chord_midi_values(ch) == [0]
-        ch = Chord(Midi(90, accidental=Accidental(mode='enharmonic_1')), 1)
+        ch = Chord(Midi(90, accidental=Accidental(mode='enharmonic')), 1)
         assert get_chord_midi_values(ch) == [90]
-        ch = Chord([Midi(90, accidental=Accidental(mode='enharmonic_1')), 70], 1)
+        ch = Chord([Midi(90, accidental=Accidental(mode='enharmonic')), 70], 1)
         assert get_chord_midi_values(ch) == [70, 90]
 
         with self.assertRaises(ValueError):
@@ -60,9 +62,9 @@ class TestTreeChord(ChordTestCase):
     def test_chord_needs_parent_error(self):
         ch = Chord(70, 1)
         with self.assertRaises(ChordHasNoParentError):
-            ch.final_updates()
+            ch.finalize()
         ch._parent = self.mock_beat
-        ch.final_updates()
+        ch.finalize()
 
     def test_init_quarter_durations(self):
         """
@@ -97,7 +99,7 @@ class TestTreeChord(ChordTestCase):
         """
         c = Chord([60, 61, 62], 2)
         c._parent = self.mock_beat
-        c.final_updates()
+        c.finalize()
         c.relative_x = 10
         assert c.relative_x == [10, 10, 10]
         c.relative_y = [None, 20, 10]
@@ -111,7 +113,7 @@ class TestTreeChord(ChordTestCase):
         c = Chord(70, 4, relative_x=10)
         c.midis[0].accidental.show = True
         c._parent = self.mock_beat
-        c.final_updates()
+        c.finalize()
         expected = """<note relative-x="10">
   <pitch>
     <step>B</step>
@@ -140,7 +142,7 @@ class TestTreeChord(ChordTestCase):
         assert c.notes[0].to_string() == expected
         # change chord's midi (zero)
         c.midis[0].value = 0
-        # c.final_updates()
+        # c.finalize()
 
         expected = """<note relative-x="10">
   <rest />
@@ -154,7 +156,7 @@ class TestTreeChord(ChordTestCase):
         # change chord's duration (not zero)
         c.quarter_duration = 1
         c._parent = self.mock_beat
-        c.final_updates()
+        c.finalize()
         expected = """<note>
   <rest />
   <duration>1</duration>
@@ -178,7 +180,7 @@ class TestTreeChord(ChordTestCase):
         c = Chord(72, 2)
         c.midis[0].accidental.show = True
         c._parent = self.mock_beat
-        c.final_updates()
+        c.finalize()
 
         c.xml_type = '16th'
         c.xml_stem = 'up'
@@ -207,7 +209,7 @@ class TestTreeChord(ChordTestCase):
 """
         assert c.notes[0].xml_pitch.to_string() == expected
         c.midis[0].value = 0
-        # c.final_updates()
+        # c.finalize()
         assert c.notes[0].xml_pitch is None
         assert c.notes[0].xml_rest is not None
         assert c.is_rest
@@ -218,7 +220,7 @@ class TestTreeChord(ChordTestCase):
         """
         chord = Chord(Midi(70, accidental=Accidental(mode='sharp')), 1)
         chord._parent = self.mock_beat
-        chord.final_updates()
+        chord.finalize()
         expected = """<pitch>
     <step>A</step>
     <alter>1</alter>
@@ -241,7 +243,7 @@ class TestTreeChord(ChordTestCase):
 </note>
 """
 
-        chord.final_updates()
+        chord.finalize()
         assert chord.notes[0].to_string() == expected
         chord.midis = [60, 61]
         expected = """<pitch>
@@ -261,7 +263,7 @@ class TestTreeChord(ChordTestCase):
     def test_chord_to_rest(self):
         chord = Chord(60, 2)
         chord._parent = self.mock_beat
-        chord.final_updates()
+        chord.finalize()
         chord.to_rest()
         expected = """<note>
   <rest />
@@ -282,7 +284,7 @@ class TestTreeChord(ChordTestCase):
         chord.midis[1].accidental.show = True
         chord.midis[2].accidental.show = True
         chord._parent = self.mock_beat
-        chord.final_updates()
+        chord.finalize()
         chord.xml_stem = 'up'
         expected_1 = """<note>
   <pitch>
@@ -328,27 +330,25 @@ class TestTreeChord(ChordTestCase):
     def test_group_chords(self):
         chords = [Chord(60, qd) for qd in [1 / 6, 1 / 6, 1 / 6, 1 / 10, 3 / 10, 1 / 10]]
         with self.assertRaises(ValueError):
-            assert group_chords(chords, [1 / 2, 1 / 2, 1 / 2])
-        assert group_chords(chords, [1 / 2, 1 / 2]) == [chords[:3], chords[3:]]
-        assert group_chords(chords, [1 / 3, 2 / 3]) == [chords[:2], chords[2:]]
-        assert group_chords(chords, [1 / 4, 3 / 4]) is None
+            assert _group_chords(chords, [1 / 2, 1 / 2, 1 / 2])
+        assert _group_chords(chords, [1 / 2, 1 / 2]) == [chords[:3], chords[3:]]
+        assert _group_chords(chords, [1 / 3, 2 / 3]) == [chords[:2], chords[2:]]
+        assert _group_chords(chords, [1 / 4, 3 / 4]) is None
 
     def test_has_same_pitches(self):
-        ch1 = Chord([60, Midi(61, accidental=Accidental(show=True)), 62], 1)
-        ch2 = Chord([60, Midi(61, accidental=Accidental(show=True))], 1)
+        ch1 = Chord([60, Midi(61), 62], 1)
+        ch2 = Chord([60, Midi(61)], 1)
         assert not ch1.has_same_pitches(ch2)
-        ch2 = Chord([60, Midi(61, accidental=Accidental(show=True)), 62], 1)
+        ch2 = Chord([60, Midi(61), 62], 1)
         assert ch1.has_same_pitches(ch2)
-        ch2 = Chord([60, Midi(61, accidental=Accidental(show=False)), 62], 1)
-        assert not ch1.has_same_pitches(ch2)
-        ch2 = Chord([60, Midi(61, accidental=Accidental(show=True, mode='flat')), 62], 1)
+        ch2 = Chord([60, Midi(61, accidental=Accidental(mode='flat')), 62], 1)
         assert not ch1.has_same_pitches(ch2)
 
     def test_add_lyric(self):
         ch = Chord(60, 2)
         ch._parent = self.mock_beat
         ch.add_lyric('test')
-        ch.final_updates()
+        ch.finalize()
         assert ch.notes[0].xml_lyric is not None
         assert ch.notes[0].xml_lyric.xml_text.value_ == 'test'
 
@@ -356,7 +356,7 @@ class TestTreeChord(ChordTestCase):
         ch = Chord(60, 1)
         ch._parent = self.mock_beat
         lyrics1 = ch.add_lyric('one')
-        ch.final_updates()
+        ch.finalize()
         lyrics2 = ch.add_lyric('two')
         assert ch.notes[0].find_children('XMLLyric') == [lyrics1, lyrics2]
 
@@ -366,35 +366,6 @@ class TestTreeChord(ChordTestCase):
         assert ch.get_staff_number() is None
         self.mock_staff.number = 1
         assert ch.get_staff_number() == 1
-
-    def test_add_articulation_after_creating_notes(self):
-        ch = Chord(60, 1)
-        ch._parent = self.mock_beat
-        staccato = ch.add_x(create_articulation(XMLStaccato))
-        ch.final_updates()
-        assert isinstance(ch.notes[0].xml_notations.xml_articulations.get_children()[0], XMLStaccato)
-        accent = ch.add_x(create_articulation(XMLAccent))
-        assert ch.notes[0].xml_notations.xml_articulations.get_children() == [staccato, accent]
-
-    def test_add_multiple_articulations(self):
-        articulation_classes = XML_ARTICULATION_CLASSES[:3]
-        ch = Chord(60, 1)
-        ch._parent = self.mock_beat
-        for a in articulation_classes:
-            ch.add_x(a())
-        assert len(ch._xml_articulations) == 3
-        ch.final_updates()
-        n = ch.notes[0]
-        assert n.xml_notations.xml_articulations is not None
-        assert [type(a) for a in n.xml_notations.xml_articulations.get_children()] == articulation_classes
-
-    @skip
-    def test_add_wedge(self):
-        self.fail('Incomplete')
-
-    @skip
-    def test_add_words(self):
-        self.fail('Incomplete')
 
     def test_add_clef(self):
         ch = Chord(60, 2)
@@ -406,77 +377,12 @@ class TestTreeChord(ChordTestCase):
             ch.clef = 'bla'
 
     @skip
-    def test_add_bracket(self):
-        self.fail('Incomplete')
-
-    @skip
-    def test_add_grace_chords(self):
-        self.fail('Incomplete')
-
-    @skip
     def test_percussion_notation(self):
         self.fail('Incomplete')
 
     @skip
     def test_finger_tremolo(self):
         self.fail('Incomplete')
-
-    def test_chord_add_x_as_object_articulation(self):
-        for cls in XML_ARTICULATION_CLASSES:
-            ch = Chord(60, 1)
-            ch.add_x(create_articulation(cls))
-            ch._parent = self.mock_beat
-            ch.final_updates()
-            assert isinstance(ch.notes[0].xml_notations.xml_articulations.get_children()[0], cls)
-
-    def test_chord_add_x_as_object_technical(self):
-        for cls in XML_TECHNICAL_CLASSES:
-            ch = Chord(60, 1)
-            ch.add_x(create_technical(cls))
-            ch._parent = self.mock_beat
-            ch.final_updates()
-            assert isinstance(ch.notes[0].xml_notations.xml_technical.get_children()[0], cls)
-
-    def test_chord_add_x_as_object_dynamics(self):
-        for cls in XML_DYNAMIC_CLASSES:
-            ch = Chord(60, 1)
-            ch.add_x(cls())
-            ch._parent = self.mock_beat
-            ch.final_updates()
-            assert isinstance(ch.notes[0].xml_notations.xml_dynamics.get_children()[0], cls)
-
-    def test_chord_add_x_as_object_ornaments(self):
-        for cls in XML_ORNAMENT_CLASSES[1:]:
-            ch = Chord(60, 1)
-            ch.add_x(create_ornament(cls))
-            ch._parent = self.mock_beat
-            ch.final_updates()
-            assert isinstance(ch.notes[0].xml_notations.xml_ornaments.get_children()[0], cls)
-
-    def test_chord_add_x_trill_with_wavy_line_and_accidental_mark(self):
-        ch = Chord(60, 1)
-        ch.add_x(XMLTrillMark())
-        ch.add_x(XMLAccidentalMark('sharp'))
-        ch.add_x(XMLWavyLine(type='start', relative_x=0))
-        ch.add_x(XMLWavyLine(type='stop', relative_x=20))
-        ch._parent = self.mock_beat
-        ch.final_updates()
-        expected = """<ornaments>
-      <trill-mark />
-      <accidental-mark>sharp</accidental-mark>
-      <wavy-line type="start" relative-x="0" />
-      <wavy-line type="stop" relative-x="20" />
-    </ornaments>
-"""
-        assert ch.notes[0].xml_notations.xml_ornaments.to_string() == expected
-
-    def test_chord_add_x_as_object_other_notations(self):
-        for cls in XML_OTHER_NOTATIONS:
-            ch = Chord(60, 1)
-            ch.add_x(cls())
-            ch._parent = self.mock_beat
-            ch.final_updates()
-            assert isinstance(ch.notes[0].xml_notations.get_children()[0], cls)
 
     def test_deepcopy_chord(self):
         chord = Chord([60, 62], 2)
@@ -487,7 +393,7 @@ class TestTreeChord(ChordTestCase):
         assert chord.quarter_duration.value == copied.quarter_duration.value
         assert id(chord.quarter_duration) != id(copied.quarter_duration)
         chord._parent = self.mock_beat
-        chord.final_updates()
+        chord.finalize()
         with self.assertRaises(DeepCopyException):
             copy.deepcopy(chord)
         # chord.add_dynamics('p')
@@ -509,9 +415,145 @@ class TestTreeChord(ChordTestCase):
         assert [midi.value for midi in chord.midis] == [58, 60, 60, 62, 63]
 
         chord._parent = self.mock_beat
-        chord.final_updates()
+        chord.finalize()
         with self.assertRaises(ChordNotesAreAlreadyCreatedError):
             chord.add_midi(80)
+
+    def test_add_direction_type(self):
+        score = Score()
+        p = score.add_part('part-1')
+        for dt_class in XML_DIRECTION_TYPE_CLASSES:
+            chord = Chord(midis=60, quarter_duration=4)
+            if dt_class == XMLSymbol:
+                dt_obj = dt_class('0')
+            else:
+                dt_obj = dt_class()
+            if dt_class == XMLDynamics:
+                assert self.assertRaises(ChordException)
+            else:
+                chord.add_direction_type(dt_obj, 'above')
+                assert dt_obj in chord.xml_direction_types['above']
+                assert chord.xml_direction_types['above'] == [dt_obj]
+                p.add_chord(chord)
+        p.finalize()
+
+    def test_add_direction_type_wrong_type(self):
+        chord = Chord(60, 4)
+        with self.assertRaises(TypeError):
+            chord.add_direction_type(XMLFermata())
+
+    def test_chord_to_string(self):
+        p = Part('p1')
+        ch = Chord(60, 1)
+        p.add_chord(ch)
+        ch.finalize()
+        with self.assertRaises(MusicTreeException):
+            ch.to_string()
+
+    def test_get_x(self):
+        def test_get_objects(*classes):
+            chord = Chord(60, 1)
+            cl1, cl2, cl3 = classes
+            dt1 = chord.add_x(cl1())
+            dt2 = chord.add_x(cl1())
+            dt3 = chord.add_x(cl2())
+            assert chord.get_x(cl1) == [dt1, dt2]
+            assert chord.get_x(cl2) == [dt3]
+            assert chord.get_x(cl3) == []
+
+        # oranment
+        test_get_objects(XML_ORNAMENT_CLASSES[0], XML_ORNAMENT_CLASSES[1], XML_ORNAMENT_CLASSES[2])
+        # articualtion
+        test_get_objects(XML_ARTICULATION_CLASSES[0], XML_ARTICULATION_CLASSES[1], XML_ARTICULATION_CLASSES[2])
+        # technical
+        test_get_objects(XML_TECHNICAL_CLASSES[0], XML_TECHNICAL_CLASSES[1], XML_TECHNICAL_CLASSES[2])
+        # other notations
+        test_get_objects(XML_OTHER_NOTATIONS[0], XML_OTHER_NOTATIONS[1], XML_OTHER_NOTATIONS[2])
+        # direction type
+        test_get_objects(XML_DIRECTION_TYPE_CLASSES[0], XML_DIRECTION_TYPE_CLASSES[1], XML_DIRECTION_TYPE_CLASSES[2])
+
+        # ornament or notation
+        chord = Chord(60, 1)
+        cl1 = XMLAccidentalMark
+        dt1 = chord.add_x(cl1('sharp'), parent_type='ornament')
+        dt2 = chord.add_x(cl1('flat'), parent_type='ornament')
+        dt3 = chord.add_x(cl1('flat'), parent_type='notation')
+        assert chord.get_x(cl1) == [dt1, dt2, dt3]
+
+    def test_get_wedges(self):
+        chord = Chord(60, 1)
+        dt1 = chord.add_x(XMLWedge(type='crescendo'))
+        dt2 = chord.add_x(XMLWedge(type='continue'))
+        dt3 = chord.add_x(XMLWedge(type='stop'))
+        assert chord.get_wedges() == [dt1, dt2, dt3]
+
+    def test_get_slurs(self):
+        chord = Chord(60, 1)
+        dt1 = chord.add_x(XMLSlur(type='start'))
+        dt2 = chord.add_x(XMLSlur(type='continue'))
+        dt3 = chord.add_x(XMLSlur(type='stop'))
+        assert chord.get_slurs() == [dt1, dt2, dt3]
+
+    def test_get_words(self):
+        chord = Chord(60, 1)
+        dt1 = chord.add_x(XMLWords('something'))
+        dt2 = chord.add_x(XMLWords('something else'))
+        assert chord.get_words() == [dt1, dt2]
+
+    def test_get_brackets(self):
+        chords = [Chord(60, 1) for _ in range(3)]
+        b1, b2, b3 = chords[0].add_x(XMLBracket()), chords[1].add_x(XMLBracket()), chords[2].add_x(XMLBracket())
+        assert [ch.get_brackets()[0] for ch in chords] == [b1, b2, b3]
+
+    def test_add_arpeggio_normal(self):
+        ch = Chord([60, 64, 67], 1)
+        assert not ch.arpeggio
+        ch._parent = self.mock_beat
+        ch.arpeggio = 'normal'
+        assert ch.arpeggio == 'normal'
+        ch.finalize()
+        for n in ch.notes:
+            assert n.xml_notations.xml_arpeggiate
+            assert n.xml_notations.xml_arpeggiate.direction is None
+
+    def test_add_arpeggio_up(self):
+        ch = Chord([60, 64, 67], 1)
+        assert not ch.arpeggio
+        ch._parent = self.mock_beat
+        ch.arpeggio = 'up'
+        assert ch.arpeggio == 'up'
+        ch.finalize()
+        for n in ch.notes:
+            assert n.xml_notations.xml_arpeggiate
+            if n == ch.notes[0]:
+                assert n.xml_notations.xml_arpeggiate.direction == 'up'
+
+    def test_add_arpeggio_bottom(self):
+        ch = Chord([60, 64, 67], 1)
+        assert not ch.arpeggio
+        ch._parent = self.mock_beat
+        ch.arpeggio = 'down'
+        assert ch.arpeggio == 'down'
+        ch.finalize()
+        for n in ch.notes:
+            assert n.xml_notations.xml_arpeggiate
+            if n == ch.notes[0]:
+                assert n.xml_notations.xml_arpeggiate.direction == 'down'
+
+    def test_add_none_arpeggio(self):
+        ch = Chord([60, 64, 67], 1)
+        assert not ch.arpeggio
+        ch._parent = self.mock_beat
+        ch.arpeggio = 'none'
+        assert ch.arpeggio == 'none'
+        ch.finalize()
+        for n in ch.notes:
+            if n == ch.notes[0]:
+                assert n.xml_notations.xml_non_arpeggiate
+                assert n.xml_notations.xml_non_arpeggiate.type == 'bottom'
+            elif n == ch.notes[-1]:
+                assert n.xml_notations.xml_non_arpeggiate
+                assert n.xml_notations.xml_non_arpeggiate.type == 'top'
 
 
 class TestTies(ChordTestCase):
@@ -522,7 +564,7 @@ class TestTies(ChordTestCase):
         ch.add_tie('start')
         for midi in ch.midis:
             assert midi._ties == {'start'}
-        ch.final_updates()
+        ch.finalize()
         assert [n.is_tied for n in ch.notes] == [True, True]
 
     def test_tied_midis(self):
@@ -532,12 +574,12 @@ class TestTies(ChordTestCase):
         m2.add_tie('start')
         ch = Chord(midis=[m1, m2])
         ch._parent = self.mock_beat
-        ch.final_updates()
+        ch.finalize()
         assert [n.is_tied for n in ch.notes] == [True, True]
 
     def test_split_tied_copy(self):
         ch = Chord(midis=60, quarter_duration=1)
-        copied = split_copy(ch)
+        copied = _split_copy(ch)
         assert ch.midis[0]._ties == copied.midis[0]._ties == set()
 
     def test_tie_one_note(self):
@@ -547,8 +589,8 @@ class TestTies(ChordTestCase):
         ch2.midis[0].add_tie('stop')
         ch1._parent = self.mock_beat
         ch2._parent = self.mock_beat
-        ch1.final_updates()
-        ch2.final_updates()
+        ch1.finalize()
+        ch2.finalize()
         assert [n.is_tied for n in ch1.notes] == [True, False]
         assert [n.is_tied_to_previous for n in ch2.notes] == [True, False]
 
@@ -556,7 +598,7 @@ class TestTies(ChordTestCase):
         ch = Chord(midis=[60, 61])
         ch.add_tie('start')
         ch._parent = self.mock_beat
-        ch.final_updates()
+        ch.finalize()
         assert [n.is_tied for n in ch.notes] == [True, True]
         print(ch.notes)
         ch.midis[0].remove_tie('start')
@@ -569,8 +611,8 @@ class TestTies(ChordTestCase):
         ch2.add_tie('stop')
         ch1._parent = self.mock_beat
         ch2._parent = self.mock_beat
-        ch1.final_updates()
-        ch2.final_updates()
+        ch1.finalize()
+        ch2.finalize()
         assert [n.is_tied for n in ch1.notes] == [True, True]
         assert [n.is_tied for n in ch2.notes] == [False, False]
         assert [n.is_tied_to_previous for n in ch2.notes] == [True, True]
@@ -580,8 +622,8 @@ class TestTies(ChordTestCase):
         ch2 = Chord(midis=[60, 61])
         ch1._parent = self.mock_beat
         ch2._parent = self.mock_beat
-        ch1.final_updates()
-        ch2.final_updates()
+        ch1.finalize()
+        ch2.finalize()
 
         ch1.add_tie('start')
         ch2.midis[1].add_tie('stop')
@@ -604,12 +646,12 @@ class TestTies(ChordTestCase):
         assert ch.all_midis_are_tied_to_previous
 
 
-class TestSplit(ChordTestCase):
+class TestSplit(TestCase):
 
     def test_set_original_starting_ties(self):
         ch = Chord(midis=[60, 61], quarter_duration=1)
         ch._set_original_starting_ties(ch)
-        copied = split_copy(ch)
+        copied = _split_copy(ch)
         assert copied._original_starting_ties == [set(), set()]
         ch.midis[0].add_tie('start')
         ch._set_original_starting_ties(ch)
@@ -617,7 +659,7 @@ class TestSplit(ChordTestCase):
 
     def test_split_copy(self):
         ch = Chord(midis=[Midi(61, accidental=Accidental(mode='sharp'))], quarter_duration=2, offset=0.5)
-        copied = split_copy(ch)
+        copied = _split_copy(ch)
         assert ch.midis != copied.midis
         assert ch.midis[0].value == copied.midis[0].value
         assert ch.midis[0].accidental != copied.midis[0].accidental
@@ -629,13 +671,13 @@ class TestSplit(ChordTestCase):
     def test_tied_split_copy(self):
         ch = Chord(midis=61, quarter_duration=2)
         ch.add_tie('start')
-        copied = split_copy(ch)
+        copied = _split_copy(ch)
         for m in copied.midis:
             assert m._ties == set()
 
     def test_split_quarter_durations(self):
         ch = Chord(midis=60, quarter_duration=4)
-        copied = split_copy(ch)
+        copied = _split_copy(ch)
         assert id(ch.quarter_duration) != id(copied.quarter_duration)
         ch.quarter_duration = 2
         assert copied.quarter_duration == 4
@@ -645,5 +687,354 @@ class TestSplit(ChordTestCase):
         beats = [Beat(1), Beat(1), Beat(1), Beat(1)]
         quarter_durations = ch.quarter_duration.get_beatwise_sections(beats=beats)
         ch.quarter_duration = quarter_durations[0][0]
-        copied = split_copy(ch, quarter_durations[1])
+        copied = _split_copy(ch, quarter_durations[1])
         assert [ch.quarter_duration, copied.quarter_duration] == [4, 1]
+
+
+class TestAddGraceChord(ChordTestCase):
+    def test_add_grace_chord_parameters(self):
+        ch = Chord(60, 1)
+        gch = ch.add_grace_chord(midis_or_grace_chord=60)
+        assert gch.midis[0].value == 60
+        in_gch = GraceChord(61)
+        gch = ch.add_grace_chord(midis_or_grace_chord=in_gch)
+        assert gch == in_gch
+        gch = ch.add_grace_chord(midis_or_grace_chord=[62, 63])
+        assert [m.value for m in gch.midis] == [62, 63]
+        gch = ch.add_grace_chord(64)
+        assert gch.midis[0].value == 64
+        gch = ch.add_grace_chord(midis_or_grace_chord=65, type_='16th')
+        assert gch.midis[0].value == 65
+        assert gch.type_.value_ == '16th'
+        in_gch = GraceChord(61, type_='16th')
+        gch = ch.add_grace_chord(midis_or_grace_chord=in_gch)
+        assert gch == in_gch
+        assert gch.type_.value_ == '16th'
+        with self.assertRaises(ValueError):
+            ch.add_grace_chord(midis_or_grace_chord=GraceChord(66, type_='quarter'), type_='16th')
+        gch = ch.add_grace_chord(67, type_='16th')
+        assert gch.midis[0].value == 67
+        assert gch.type_.value_ == '16th'
+        gch = ch.add_grace_chord(68, type_='16th', position='after')
+        assert gch.position == 'after'
+        assert gch.midis[0].value == 68
+        assert gch.type_.value_ == '16th'
+        with self.assertRaises(ValueError):
+            gch = ch.add_grace_chord(GraceChord(66, type_='quarter'), position='after')
+
+    def test_add_grace_chord_before_and_after_argument(self):
+        ch = Chord(60, 1)
+        midis_or_chord = [62, [63, 65], GraceChord(66)]
+        before_chords = [ch.add_grace_chord(x) for x in midis_or_chord]
+        assert ch._grace_chords['before'] == before_chords
+
+        midis_or_chord = [67, [68, 70], GraceChord(71, position='after')]
+        after_chords = [
+            ch.add_grace_chord(x, position='after') if not isinstance(x, GraceChord) else ch.add_grace_chord(x) for x in
+            midis_or_chord]
+        assert ch._grace_chords['after'] == after_chords
+
+    def test_add_grace_chord_generates_grace_chords(self):
+        ch = Chord(60, 1)
+        with self.assertRaises(TypeError):
+            ch.add_grace_chord()
+        gc1 = ch.add_grace_chord(60)
+        gc2 = ch.add_grace_chord(61, type_='quarter')
+        gc3 = ch.add_grace_chord(GraceChord(midis=[62, 64]))
+        gc4 = ch.add_grace_chord(GraceChord(63, type_='16th'))
+        all_gcs = [gc1, gc2, gc3, gc4]
+        assert [[m.value for m in gc.midis] for gc in all_gcs] == [[60], [61], [62, 64], [63]]
+        assert [gc.type_.value_ if gc.type_ else None for gc in all_gcs] == [None, 'quarter', None, '16th']
+
+    def test_add_grace_chord_finalize(self):
+        part = Part('p1')
+        ch = Chord(midis=[60, 63], quarter_duration=4)
+        midis_or_chord = [62, [63, 65], GraceChord(66)]
+        before_chords = [ch.add_grace_chord(x) for x in midis_or_chord]
+        midis_or_chord = [67, [68, 70], GraceChord(71, position='after')]
+        after_chords = [
+            ch.add_grace_chord(x, position='after') if not isinstance(x, GraceChord) else ch.add_grace_chord(x) for x in
+            midis_or_chord]
+        part.add_chord(ch)
+        with self.assertRaises(ChordException):
+            ch.add_grace_chord(80)
+        part.finalize()
+        assert len(part.get_chords()) == 7
+
+    def test_grace_chords_are_added_to_right_voice(self):
+        part = Part('p1')
+        ch = Chord(midis=[60, 63], quarter_duration=4)
+        gch1 = ch.add_grace_chord(80)
+        gch2 = ch.add_grace_chord(90, position='after')
+        part.add_chord(ch, staff_number=2, voice_number=2)
+        part.finalize()
+        assert part.get_chords() == [gch1, ch, gch2]
+        for c in [gch1, ch, gch2]:
+            assert c.voice_number == 2
+            assert c.get_staff_number() == 2
+
+    def test_grace_chords_after_the_last_chord_in_measure(self):
+        part = Part('p1')
+        ch = Chord(60, 4)
+        gch = ch.add_grace_chord(80, position='after')
+        part.add_chord(ch)
+        part.add_chord(Chord(90, 1))
+        part.finalize()
+        assert gch in part.get_measure(1).get_chords()
+
+    def test_error_grace_chord_add_grace_chord(self):
+        gch = GraceChord(60)
+        with self.assertRaises(TypeError):
+            gch.add_grace_chord(80)
+
+    def test_grace_chords_after_to_right_beat(self):
+        part = Part('p1')
+        ch = Chord(60, 1)
+        gch = ch.add_grace_chord(80, position='after')
+        part.add_chord(ch)
+        part.add_chord(Chord(90, 3))
+        assert gch in part.get_beat(1, 1, 1, 1).get_children()
+
+
+class TestAddX(ChordTestCase):
+    # def setUp(self):
+    #     super().setUp()
+    #     self.score = Score()
+    #     self.part = self.score.add_part('p1')
+
+    def test_add_x_parent_type(self):
+        ch = Chord(60, 1)
+        ch.add_x(XML_DIRECTION_TYPE_CLASSES[0]())
+
+    def test_add_x_placement(self):
+        def add_type_and_placement(type_, xml_object=None):
+            above_part = Part(f"above-{type_}-{xml_object.name}") if xml_object else Part(f"above-{type_}")
+            below_part = Part(f"below-{type_}-{xml_object.name}") if xml_object else Part(f"below-{type_}")
+            if not xml_object:
+                above_objects = create_test_objects(type_)
+                below_objects = create_test_objects(type_)
+            else:
+                above_objects = [xml_object]
+                below_objects = [xml_object.__deepcopy__()]
+
+            for obj in above_objects:
+                ch = Chord(60, 1)
+                try:
+                    ch.add_x(obj, placement='above', parent_type=type_)
+                except ChordAddXPlacementException:
+                    ch.add_x(obj, placement=None, parent_type=type_)
+                above_part.add_chord(ch)
+            for obj in below_objects:
+                ch = Chord(60, 1)
+                try:
+                    ch.add_x(obj, placement='below', parent_type=type_)
+                except ChordAddXPlacementException:
+                    ch.add_x(obj, placement=None, parent_type=type_)
+                below_part.add_chord(ch)
+
+            above_part.finalize()
+            below_part.finalize()
+            if type_ == 'direction_type':
+                for p in ['above', 'below']:
+                    directions = [d for m in eval(f"{p}_part.get_children()") for d in
+                                  [c for c in m.xml_object.get_children() if isinstance(c, XMLDirection)]]
+                    assert len(directions) == len(above_objects)
+                    for x in directions:
+                        assert x.placement == p
+
+            elif type_ in ['technical', 'ornament', 'articulation']:
+                for p in ['above', 'below']:
+                    notations = [notation for measure in eval(f'{p}_part').get_children() for note in
+                                 [x for x in measure.xml_object.get_children() if isinstance(x, XMLNote)] for notation
+                                 in
+                                 [y for y in note.get_children() if isinstance(y, XMLNotations)]]
+                    assert len(notations) == len(above_objects)
+                    for x in notations:
+                        if x.get_children()[0].get_children()[0].__class__ not in [XMLFret, XMLBend]:
+                            assert x.get_children()[0].get_children()[0].placement == p
+            else:
+                raise NotImplementedError(f'testing type_ {type_}')
+
+        # direction_type objects
+        add_type_and_placement('direction_type')
+
+        # technical objects
+        add_type_and_placement('technical')
+
+        # ornament objects
+        add_type_and_placement('ornament')
+
+        # articulation objects
+        add_type_and_placement('articulation')
+
+        # notation only objects does not accept placement (except fermata)
+        notation_object = XMLArpeggiate()
+        ch = Chord(60, 1)
+        with self.assertRaises(ChordAddXPlacementException):
+            ch.add_x(notation_object, placement='above', parent_type='notation')
+        ch.add_x(notation_object, placement=None, parent_type='notation')
+
+        # mixed below and above
+        part = Part('mixed_placements')
+        x_objects = [XMLTenuto(), XMLStaccato(), XMLAccent()]
+        placements = ['below', 'below', 'above']
+        ch = Chord(60, 1)
+        for obj, plc in zip(x_objects, placements):
+            ch.add_x(obj, placement=plc)
+        part.add_chord(ch)
+        part.finalize()
+        notations = [notation for measure in part.get_children() for note in
+                     [x for x in measure.xml_object.get_children() if isinstance(x, XMLNote)] for notation in
+                     [y for y in note.get_children() if isinstance(y, XMLNotations)]]
+        for index, x in enumerate(notations[0].xml_articulations.get_children()):
+            assert x.placement == placements[index]
+
+        # fermata placement is translated in fermata types inverted or upright
+        fermatas = [XMLFermata(), XMLFermata()]
+        placements = ['above', 'below']
+        ch = Chord(60, 1)
+        for f, p in zip(fermatas, placements):
+            ch.add_x(f, placement=p)
+
+        for f, t in zip(fermatas, ['upright', 'inverted']):
+            assert f.type == t
+
+    def test_add_articulation_after_creating_notes(self):
+        ch = Chord(60, 1)
+        ch._parent = self.mock_beat
+        staccato = ch.add_x(XMLStaccato())
+        ch.finalize()
+        assert ch.notes[0].xml_notations.xml_articulations.get_children() == [staccato]
+        assert isinstance(ch.notes[0].xml_notations.xml_articulations.get_children()[0], XMLStaccato)
+        accent = ch.add_x(XMLAccent())
+        assert ch.notes[0].xml_notations.xml_articulations.get_children() == [staccato, accent]
+
+    def test_add_multiple_articulations(self):
+        articulation_classes = XML_ARTICULATION_CLASSES[:3]
+        ch = Chord(60, 1)
+        ch._parent = self.mock_beat
+        for a in articulation_classes:
+            ch.add_x(a())
+        assert len(ch._xml_articulations) == 3
+        ch.finalize()
+        n = ch.notes[0]
+        assert n.xml_notations.xml_articulations is not None
+        assert [type(a) for a in n.xml_notations.xml_articulations.get_children()] == articulation_classes
+
+    def test_chord_add_x_as_object_articulation(self):
+        for obj in create_test_objects('articulation'):
+            ch = Chord(60, 1)
+            ch.add_x(obj)
+            ch._parent = self.mock_beat
+            ch.finalize()
+            assert ch.notes[0].xml_notations.xml_articulations.get_children()[0] == obj
+
+    def test_chord_add_x_as_object_technical(self):
+        for obj in create_test_objects('technical'):
+            ch = Chord(60, 1)
+            ch.add_x(obj)
+            ch._parent = self.mock_beat
+            ch.finalize()
+            assert ch.notes[0].xml_notations.xml_technical.get_children()[0] == obj
+
+    def test_chord_add_x_as_object_dynamics(self):
+        for cls in XML_DYNAMIC_CLASSES:
+            ch = Chord(60, 1)
+            ch.add_x(cls(), parent_type='notation')
+            ch._parent = self.mock_beat
+            ch.finalize()
+            assert isinstance(ch.notes[0].xml_notations.xml_dynamics.get_children()[0], cls)
+
+    def test_chord_add_x_as_object_ornaments(self):
+        for obj in create_test_objects('ornament'):
+            ch = Chord(60, 1)
+            if isinstance(obj, XMLAccidentalMark):
+                ch.add_x(obj, parent_type='ornament')
+            else:
+                ch.add_x(obj)
+            ch._parent = self.mock_beat
+            ch.finalize()
+            assert ch.notes[0].xml_notations.xml_ornaments.get_children()[0] == obj
+
+    def test_chord_add_x_trill_with_wavy_line_and_accidental_mark(self):
+        ch = Chord(60, 1)
+        ch.add_x(XMLTrillMark())
+        ch.add_x(XMLAccidentalMark('sharp'), parent_type='ornament')
+        ch.add_x(XMLWavyLine(type='start', relative_x=0))
+        ch.add_x(XMLWavyLine(type='stop', relative_x=20))
+        ch._parent = self.mock_beat
+        ch.finalize()
+        expected = """<ornaments>
+      <trill-mark />
+      <accidental-mark>sharp</accidental-mark>
+      <wavy-line type="start" relative-x="0" />
+      <wavy-line type="stop" relative-x="20" />
+    </ornaments>
+"""
+        assert ch.notes[0].xml_notations.xml_ornaments.to_string() == expected
+
+    def test_chord_add_x_as_object_other_notations(self):
+        for cls in XML_OTHER_NOTATIONS:
+            ch = Chord(60, 1)
+            ch.add_x(cls())
+            ch._parent = self.mock_beat
+            ch.finalize()
+            assert isinstance(ch.notes[0].xml_notations.get_children()[0], cls)
+
+    def test_add_xml_wedge_objects(self):
+        wedges = [XMLWedge(type=val) for val in ['crescendo', 'stop', 'diminuendo', 'stop']]
+        for wedge in wedges:
+            ch = Chord(60, 4)
+            ch._parent = self.mock_beat
+            ch.add_wedge(wedge)
+            ch.finalize()
+            assert len(ch._xml_directions) == 1
+            d = ch._xml_directions[0]
+            assert d.placement == 'below'
+            assert d.xml_direction_type.xml_wedge == wedge
+
+    def test_add_wedge_string(self):
+        wedges = ['crescendo', 'stop', 'diminuendo', 'stop']
+        for wedge in wedges:
+            ch = Chord(60, 4)
+            ch._parent = self.mock_beat
+            ch.add_wedge(wedge)
+            ch.finalize()
+            assert len(ch._xml_directions) == 1
+            d = ch._xml_directions[0]
+            assert d.placement == 'below'
+            assert d.xml_direction_type.xml_wedge.type == wedge
+
+    def test_add_words(self):
+        ch = Chord(60, 4)
+        ch._parent = self.mock_beat
+        texts = ['Below', 'Above', 'FontSize', 'Bold']
+        xml_words_objects = [ch.add_words(texts[0], placement='below'),
+                             ch.add_words(texts[1]),
+                             ch.add_words(texts[2], font_size=18, relative_y=30),
+                             ch.add_words(texts[3], font_weight='bold', relative_y=60)]
+        ch.finalize()
+        assert set(xml_words_objects) == set([d.xml_direction_type.xml_words for d in ch._xml_directions])
+
+        for obj, t in zip(xml_words_objects, texts):
+            assert obj.value_ == t
+
+        for obj, p in zip(xml_words_objects, ['below', 'above', 'above', 'above']):
+            assert obj.up.up.placement == p
+        for fs, obj in zip([None, None, 18, None], xml_words_objects):
+            assert obj.font_size == fs
+        for fw, obj in zip([None, None, None, 'bold'], xml_words_objects):
+            assert obj.font_weight == fw
+        for ry, obj in zip([None, None, 30, 60], xml_words_objects):
+            assert obj.relative_y == ry
+
+        ch = Chord(60, 4)
+        ch._parent = self.mock_beat
+
+        xml_words = ch.add_words(XMLWords('something', font_size=10, relative_y=20), placement='below', font_size=20)
+        ch.finalize()
+        d = ch._xml_directions[0]
+        assert d.xml_direction_type.xml_words.value_ == 'something'
+        assert d.placement == 'below'
+        assert xml_words.font_size == 20
+        assert xml_words.relative_y == 20
