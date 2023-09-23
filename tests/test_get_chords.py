@@ -1,7 +1,7 @@
-from musictree.chord import Chord
-from musictree.part import Part
-from musictree.score import Score
-from musictree.tests.util import IdTestCase
+from musicscore.chord import Chord
+from musicscore.part import Part
+from musicscore.score import Score
+from musicscore.tests.util import IdTestCase
 
 
 class TestGetChords(IdTestCase):

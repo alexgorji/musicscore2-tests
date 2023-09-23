@@ -1,10 +1,10 @@
-from musictree.chord import Chord
-from musictree.exceptions import AlreadyFinalizedError
-from musictree.midi import Midi
-from musictree.part import Part
-from musictree.quarterduration import QuarterDuration
-from musictree.score import Score
-from musictree.tests.util import IdTestCase
+from musicscore.chord import Chord
+from musicscore.exceptions import AlreadyFinalizedError
+from musicscore.midi import Midi
+from musicscore.part import Part
+from musicscore.quarterduration import QuarterDuration
+from musicscore.score import Score
+from musicscore.tests.util import IdTestCase
 
 
 def assert_chord_note_values(chord, expected_values):

@@ -1,7 +1,7 @@
-from musictree import QuarterDuration, Part, Chord
-from musictree.exceptions import MetronomeWrongBeatUnitError
-from musictree.metronome import Metronome
-from musictree.tests.util import IdTestCase
+from musicscore import QuarterDuration, Part, Chord
+from musicscore.exceptions import MetronomeWrongBeatUnitError
+from musicscore.metronome import Metronome
+from musicscore.tests.util import IdTestCase
 from musicxml.xmlelement.xmlelement import XMLSound
 
 

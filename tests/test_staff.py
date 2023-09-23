@@ -1,11 +1,11 @@
 from unittest import TestCase
 from unittest.mock import patch
 
-from musictree.chord import Chord
-from musictree.measure import Measure
-from musictree.part import Part
-from musictree.staff import Staff
-from musictree.voice import Voice
+from musicscore.chord import Chord
+from musicscore.measure import Measure
+from musicscore.part import Part
+from musicscore.staff import Staff
+from musicscore.voice import Voice
 from musicxml import XMLVoice, XMLStaff
 
 
@@ -23,7 +23,7 @@ class TestStaff(TestCase):
         assert st.number is 1
         assert st.xml_object.value_ == 1
 
-    @patch('musictree.measure.Measure')
+    @patch('musicscore.measure.Measure')
     def test_add_child(self, mock_measure):
         st = Staff()
         st._parent = mock_measure
@@ -34,7 +34,7 @@ class TestStaff(TestCase):
         assert len(st.get_children()) == 2
         assert [child.number for child in st.get_children()] == [1, 2]
 
-    @patch('musictree.measure.Measure')
+    @patch('musicscore.measure.Measure')
     def test_add_voice(self, mock_measure):
         st = Staff()
         st._parent = mock_measure

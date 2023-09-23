@@ -1,13 +1,13 @@
 from pathlib import Path
 from unittest import TestCase, skip
 
-from musictree import Chord
-from musictree.exceptions import WrongNumberOfChordsError
-from musictree.midi import C
+from musicscore import Chord
+from musicscore.exceptions import WrongNumberOfChordsError
+from musicscore.midi import C
 
-from musictree.score import Score
-from musictree.tests.util import diff_xml, _create_expected_path, create_test_objects
-from musictree.util import lcm, isinstance_as_string, XML_DYNAMIC_CLASSES, XML_ARTICULATION_CLASSES, \
+from musicscore.score import Score
+from musicscore.tests.util import diff_xml, _create_expected_path, create_test_objects
+from musicscore.util import lcm, isinstance_as_string, XML_DYNAMIC_CLASSES, XML_ARTICULATION_CLASSES, \
     XML_ORNAMENT_CLASSES, XML_ORNAMENT_AND_OTHER_NOTATIONS, XML_TECHNICAL_CLASSES, XML_OTHER_NOTATIONS, \
     XML_DIRECTION_TYPE_CLASSES, XML_OTHER_NOTATIONS, XML_DIRECTION_TYPE_AND_OTHER_NOTATIONS, slur_chords, wedge_chords, \
     trill_chords, bracket_chords, octave_chords

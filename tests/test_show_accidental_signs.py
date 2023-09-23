@@ -1,8 +1,8 @@
 import inspect
 
-from musictree import Score, Part, Time, Chord, C
-from musictree.tests.util import IdTestCase, generate_repetitions, generate_path
-from musictree.util import chord_is_in_a_repetition
+from musicscore import Score, Part, Time, Chord, C
+from musicscore.tests.util import IdTestCase, generate_repetitions, generate_path
+from musicscore.util import chord_is_in_a_repetition
 
 
 # MyXMLTestSuite test_cautionary

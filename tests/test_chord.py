@@ -3,16 +3,16 @@ from unittest import skip, TestCase
 
 from quicktions import Fraction
 
-from musictree import BassClef, Score, Part
-from musictree.accidental import Accidental
-from musictree.beat import Beat
-from musictree.chord import Chord, _split_copy, _group_chords, GraceChord
-from musictree.exceptions import ChordHasNoParentError, DeepCopyException, ChordNotesAreAlreadyCreatedError, \
+from musicscore import BassClef, Score, Part
+from musicscore.accidental import Accidental
+from musicscore.beat import Beat
+from musicscore.chord import Chord, _split_copy, _group_chords, GraceChord
+from musicscore.exceptions import ChordHasNoParentError, DeepCopyException, ChordNotesAreAlreadyCreatedError, \
     ChordException, MusicTreeException, ChordAddXException, ChordAddXPlacementException
-from musictree.midi import Midi
-from musictree.quarterduration import QuarterDuration
-from musictree.tests.util import ChordTestCase, create_test_objects
-from musictree.util import XML_ARTICULATION_CLASSES, XML_TECHNICAL_CLASSES, XML_DYNAMIC_CLASSES, XML_ORNAMENT_CLASSES, \
+from musicscore.midi import Midi
+from musicscore.quarterduration import QuarterDuration
+from musicscore.tests.util import ChordTestCase, create_test_objects
+from musicscore.util import XML_ARTICULATION_CLASSES, XML_TECHNICAL_CLASSES, XML_DYNAMIC_CLASSES, XML_ORNAMENT_CLASSES, \
     XML_OTHER_NOTATIONS, XML_DIRECTION_TYPE_CLASSES, XML_ORNAMENT_AND_OTHER_NOTATIONS, \
     XML_DIRECTION_TYPE_AND_OTHER_NOTATIONS
 from musicxml.xmlelement.xmlelement import *

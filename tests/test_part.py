@@ -4,15 +4,15 @@ from pathlib import Path
 
 import xmltodict
 
-from musictree import Time, SimpleFormat, BassClef, TrebleClef
-from musictree.chord import Chord
-from musictree.exceptions import IdHasAlreadyParentOfSameTypeError, IdWithSameValueExistsError
-from musictree.key import Key
-from musictree.measure import Measure
-from musictree.part import Part, ScorePart, Id
-from musictree.quarterduration import QuarterDuration
-from musictree.score import Score
-from musictree.tests.util import IdTestCase, get_xml_elements_diff, XMLsDifferException, get_xml_diff_part, \
+from musicscore import Time, SimpleFormat, BassClef, TrebleClef
+from musicscore.chord import Chord
+from musicscore.exceptions import IdHasAlreadyParentOfSameTypeError, IdWithSameValueExistsError
+from musicscore.key import Key
+from musicscore.measure import Measure
+from musicscore.part import Part, ScorePart, Id
+from musicscore.quarterduration import QuarterDuration
+from musicscore.score import Score
+from musicscore.tests.util import IdTestCase, get_xml_elements_diff, XMLsDifferException, get_xml_diff_part, \
     generate_xml_file
 
 

@@ -2,11 +2,11 @@ from unittest import TestCase
 
 from quicktions import Fraction
 
-from musictree import Part, Time
-from musictree.chord import Chord
-from musictree.measure import Measure
-from musictree.tests.test_beat import create_voice
-from musictree.tests.util import generate_all_quintuplets, generate_all_triplets, generate_all_sextuplets, IdTestCase
+from musicscore import Part, Time
+from musicscore.chord import Chord
+from musicscore.measure import Measure
+from musicscore.tests.test_beat import create_voice
+from musicscore.tests.util import generate_all_quintuplets, generate_all_triplets, generate_all_sextuplets, IdTestCase
 
 
 class TestTuplets(IdTestCase):

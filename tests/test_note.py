@@ -3,11 +3,11 @@ from unittest.mock import patch, Mock
 
 from quicktions import Fraction
 
-from musictree.chord import Chord
-from musictree.exceptions import NoteMidiHasNoParentChordError
-from musictree.midi import Midi
-from musictree.note import Note, tie, untie
-from musictree.part import Part
+from musicscore.chord import Chord
+from musicscore.exceptions import NoteMidiHasNoParentChordError
+from musicscore.midi import Midi
+from musicscore.note import Note, tie, untie
+from musicscore.part import Part
 from musicxml.xmlelement.xmlelement import *
 
 
@@ -537,7 +537,7 @@ class TestNoteTie(NoteTestCase):
 
     def test_note_parent_chord(self):
         """
-        Test if parent chord of a note is its parent in the musictree
+        Test if parent chord of a note is its parent in the musicscore
         """
         p = Part('p1')
         ch = Chord(60, 1)

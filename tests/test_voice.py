@@ -1,14 +1,14 @@
 from unittest import TestCase
 from unittest.mock import Mock, patch
 
-from musictree.beat import Beat
-from musictree.chord import Chord
-from musictree.exceptions import VoiceHasNoBeatsError, AddChordError, VoiceIsFullError
-from musictree.voice import Voice
+from musicscore.beat import Beat
+from musicscore.chord import Chord
+from musicscore.exceptions import VoiceHasNoBeatsError, AddChordError, VoiceIsFullError
+from musicscore.voice import Voice
 
 
 class TestVoice(TestCase):
-    @patch('musictree.voice.Voice.up', new=Mock())
+    @patch('musicscore.voice.Voice.up', new=Mock())
     def test_voice_add_beat(self):
         v = Voice()
         quarter_durations = [1 / 64, 3 / 64, 1 / 32, 3 / 32, 1 / 16, 3 / 16, 1 / 8, 3 / 8, 1 / 4, 3 / 4, 1 / 2, 1, 2, 3]
@@ -16,7 +16,7 @@ class TestVoice(TestCase):
             v.add_child(Beat(quarter_duration))
         assert [child.quarter_duration for child in v.get_children()] == quarter_durations
 
-    @patch('musictree.voice.Voice.up')
+    @patch('musicscore.voice.Voice.up')
     def test_update_beats(self, mock_beat):
         v = Voice()
         assert not v.get_children()
@@ -29,7 +29,7 @@ class TestVoice(TestCase):
         v.update_beats([1 / 4] * 3)
         assert [child.quarter_duration.as_integer_ratio() for child in v.get_children()] == [(1, 4)] * 3
 
-    @patch('musictree.voice.Voice.up', new=Mock())
+    @patch('musicscore.voice.Voice.up', new=Mock())
     def test_update_beats_with_old_beats(self):
         v = Voice()
         v.update_beats(1 / 4, 1 / 4, 1 / 4, 1 / 4)
@@ -37,7 +37,7 @@ class TestVoice(TestCase):
 
         assert [child.quarter_duration.as_integer_ratio() for child in v.get_children()] == [(1, 4), (1, 2)]
 
-    @patch('musictree.voice.Voice.up', new=Mock())
+    @patch('musicscore.voice.Voice.up', new=Mock())
     def test_get_current_beat(self):
         v = Voice()
         beats = v.update_beats(1 / 4, 1 / 4, 1 / 4, 1 / 4)
@@ -58,7 +58,7 @@ class TestVoice(TestCase):
         with self.assertRaises(VoiceIsFullError):
             assert v.get_current_beat() is None
 
-    @patch('musictree.staff.Staff')
+    @patch('musicscore.staff.Staff')
     def test_add_chord(self, mock_staff):
         v = Voice()
         v._parent = mock_staff

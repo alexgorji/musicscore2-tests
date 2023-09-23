@@ -3,8 +3,8 @@ from unittest import skip
 
 from deepdiff import DeepDiff
 
-from musictree import Score, Midi, QuarterDuration, Chord, SimpleFormat, TrebleClef, SimpleFormatException
-from musictree.tests.util import IdTestCase, get_xml_diff_part, generate_xml_file
+from musicscore import Score, Midi, QuarterDuration, Chord, SimpleFormat, TrebleClef, SimpleFormatException
+from musicscore.tests.util import IdTestCase, get_xml_diff_part, generate_xml_file
 import xml.etree.ElementTree as ET
 
 

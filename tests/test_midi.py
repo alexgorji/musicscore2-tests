@@ -2,12 +2,12 @@ import inspect
 from unittest import TestCase
 from unittest.mock import patch
 
-from musictree import Chord, Part, Time, Score
-from musictree.accidental import Accidental
-from musictree.measure import Measure
-from musictree.midi import Midi
-from musictree.note import Note
-from musictree.tests.util import generate_path, IdTestCase
+from musicscore import Chord, Part, Time, Score
+from musicscore.accidental import Accidental
+from musicscore.measure import Measure
+from musicscore.midi import Midi
+from musicscore.note import Note
+from musicscore.tests.util import generate_path, IdTestCase
 from musicxml.xmlelement.xmlelement import XMLPitch, XMLRest, XMLNotehead
 
 
@@ -63,7 +63,7 @@ class TestMidi(TestCase):
         assert r.accidental.get_pitch_parameters() is None
         assert r.get_pitch_or_rest().to_string() == '<rest />\n'
 
-    @patch('musictree.chord.Chord', spec=Chord)
+    @patch('musicscore.chord.Chord', spec=Chord)
     def test_midi_parent_note(self, mock_chord):
         """
         Test if a midi object which is being contained in a note can access it via its parent_note attribute.
@@ -146,7 +146,7 @@ class TestMidi(TestCase):
         assert id(m._ties) != id(copied._ties)
         assert m._ties != copied._ties
 
-    @patch('musictree.chord.Chord', spec=Chord)
+    @patch('musicscore.chord.Chord', spec=Chord)
     def test_midi_up_note(self, mock_chord):
         mock_chord.get_staff_number.return_value = None
         m = Midi(70)

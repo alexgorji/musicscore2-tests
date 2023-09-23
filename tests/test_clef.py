@@ -1,8 +1,8 @@
 from unittest import TestCase
 
-from musictree import Part
-from musictree.clef import Clef, TrebleClef, BassClef, TenorClef, AltoClef, PercussionClef
-from musictree.tests.util import IdTestCase
+from musicscore import Part
+from musicscore.clef import Clef, TrebleClef, BassClef, TenorClef, AltoClef, PercussionClef
+from musicscore.tests.util import IdTestCase
 
 
 class TestClef(IdTestCase):

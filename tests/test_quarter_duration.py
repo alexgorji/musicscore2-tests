@@ -1,9 +1,9 @@
 from quicktions import Fraction
 from unittest import TestCase
 
-from musictree.beat import Beat
-from musictree.exceptions import QuarterDurationIsNotWritable
-from musictree.quarterduration import QuarterDuration, _check_quarter_duration_value
+from musicscore.beat import Beat
+from musicscore.exceptions import QuarterDurationIsNotWritable
+from musicscore.quarterduration import QuarterDuration, _check_quarter_duration_value
 
 
 class TestQuarterDuration(TestCase):

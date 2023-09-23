@@ -1,8 +1,8 @@
 from musicxml.xmlelement.xmlelement import XMLScaling
 
-from musictree.layout import PageLayout, SystemLayout, StaffLayout, Scaling
-from musictree.score import Score
-from musictree.tests.util import IdTestCase
+from musicscore.layout import PageLayout, SystemLayout, StaffLayout, Scaling
+from musicscore.score import Score
+from musicscore.tests.util import IdTestCase
 
 
 class TestScaling(IdTestCase):

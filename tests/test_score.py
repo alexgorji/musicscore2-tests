@@ -1,11 +1,11 @@
 from unittest import skip
 
-from musictree.chord import Chord
-from musictree.layout import StaffLayout
-from musictree.measure import Measure
-from musictree.part import Part
-from musictree.score import Score, TITLE, SUBTITLE
-from musictree.tests.util import IdTestCase
+from musicscore.chord import Chord
+from musicscore.layout import StaffLayout
+from musicscore.measure import Measure
+from musicscore.part import Part
+from musicscore.score import Score, TITLE, SUBTITLE
+from musicscore.tests.util import IdTestCase
 
 
 class TestScore(IdTestCase):

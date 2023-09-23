@@ -1,6 +1,6 @@
-from musictree import Part, Chord, Measure, Beat, Voice, Score, Staff, Accidental
-from musictree.exceptions import AlreadyFinalizedError, ChordNotesAreAlreadyCreatedError, AddChordError
-from musictree.tests.util import IdTestCase
+from musicscore import Part, Chord, Measure, Beat, Voice, Score, Staff, Accidental
+from musicscore.exceptions import AlreadyFinalizedError, ChordNotesAreAlreadyCreatedError, AddChordError
+from musicscore.tests.util import IdTestCase
 from musicxml.xmlelement.xmlelement import XMLCoda, XMLSegno
 
 

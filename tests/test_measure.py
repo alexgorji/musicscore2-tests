@@ -1,15 +1,15 @@
 from unittest import TestCase, skip
 
-from musictree import Score
-from musictree.chord import Chord
-from musictree.clef import BassClef, TrebleClef
-from musictree.exceptions import VoiceIsFullError, AddChordError
-from musictree.measure import Measure, generate_measures
-from musictree.part import Part
-from musictree.staff import Staff
-from musictree.tests.util import IdTestCase
-from musictree.time import Time
-from musictree.voice import Voice
+from musicscore import Score
+from musicscore.chord import Chord
+from musicscore.clef import BassClef, TrebleClef
+from musicscore.exceptions import VoiceIsFullError, AddChordError
+from musicscore.measure import Measure, generate_measures
+from musicscore.part import Part
+from musicscore.staff import Staff
+from musicscore.tests.util import IdTestCase
+from musicscore.time import Time
+from musicscore.voice import Voice
 from musicxml.xmlelement.xmlelement import *
 
 

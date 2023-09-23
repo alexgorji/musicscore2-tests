@@ -1,7 +1,7 @@
-from musictree import Score, Chord
-from musictree.lyrics import Lyrics
-from musictree.tests.util import IdTestCase, _generate_xml_lyric
-from musictree.util import _generate_lyrics
+from musicscore import Score, Chord
+from musicscore.lyrics import Lyrics
+from musicscore.tests.util import IdTestCase, _generate_xml_lyric
+from musicscore.util import _generate_lyrics
 from musicxml import XMLLyric
 from musicxml.exceptions import XMLElementChildrenRequired
 

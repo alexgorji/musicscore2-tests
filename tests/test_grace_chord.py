@@ -1,7 +1,7 @@
-from musictree import Part
-from musictree.chord import GraceChord
-from musictree.exceptions import ChordException
-from musictree.tests.util import IdTestCase
+from musicscore import Part
+from musicscore.chord import GraceChord
+from musicscore.exceptions import ChordException
+from musicscore.tests.util import IdTestCase
 from musicxml.xmlelement.xmlelement import XMLType
 
 

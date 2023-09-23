@@ -2,9 +2,9 @@ from unittest import TestCase
 
 from fractions import Fraction
 
-from musictree import Part, Chord, Measure
-from musictree.tests.util import IdTestCase
-from musictree.time import Time, flatten_times, _convert_signatures_to_ints
+from musicscore import Part, Chord, Measure
+from musicscore.tests.util import IdTestCase
+from musicscore.time import Time, flatten_times, _convert_signatures_to_ints
 
 
 class TestTime(TestCase):

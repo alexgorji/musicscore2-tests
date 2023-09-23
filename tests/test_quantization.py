@@ -1,9 +1,9 @@
-from musictree.chord import Chord
-from musictree.part import Part
-from musictree.quarterduration import QuarterDuration
-from musictree.score import Score
-from musictree.tests.util import IdTestCase
-from musictree.util import lcm
+from musicscore.chord import Chord
+from musicscore.part import Part
+from musicscore.quarterduration import QuarterDuration
+from musicscore.score import Score
+from musicscore.tests.util import IdTestCase
+from musicscore.util import lcm
 
 
 class TestQuantization(IdTestCase):

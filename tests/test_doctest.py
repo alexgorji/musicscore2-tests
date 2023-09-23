@@ -1,6 +1,6 @@
-from musictree.chord import Chord
-from musictree.midi import Midi
-from musictree.quarterduration import QuarterDuration
+from musicscore.chord import Chord
+from musicscore.midi import Midi
+from musicscore.quarterduration import QuarterDuration
 
 
 def something():
@@ -40,7 +40,7 @@ class A:
         >>> a = A()
         >>> a.midi = 60
         >>> type(a.midi)
-        <class 'musictree.midi.Midi'>
+        <class 'musicscore.midi.Midi'>
         >>> m = Midi(40)
         >>> a.midi = m
         >>> a.midi.value

@@ -1,5 +1,5 @@
-from musictree import Score
-from musictree.tests.util import IdTestCase
+from musicscore import Score
+from musicscore.tests.util import IdTestCase
 
 
 class TestCore(IdTestCase):

@@ -1,12 +1,12 @@
 from unittest import TestCase
 
-from musictree.beat import Beat
-from musictree.chord import Chord
-from musictree.exceptions import AddChordError, VoiceIsFullError
-from musictree.measure import Measure
-from musictree.quarterduration import QuarterDuration
-from musictree.staff import Staff
-from musictree.voice import Voice
+from musicscore.beat import Beat
+from musicscore.chord import Chord
+from musicscore.exceptions import AddChordError, VoiceIsFullError
+from musicscore.measure import Measure
+from musicscore.quarterduration import QuarterDuration
+from musicscore.staff import Staff
+from musicscore.voice import Voice
 
 
 def create_voice():

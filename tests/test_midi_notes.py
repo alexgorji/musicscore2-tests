@@ -1,7 +1,7 @@
 import inspect
 
-from musictree import C, B, G, Part, Chord, Score, Time
-from musictree.tests.util import TestCase, generate_path, IdTestCase
+from musicscore import C, B, G, Part, Chord, Score, Time
+from musicscore.tests.util import TestCase, generate_path, IdTestCase
 from musicxml.xmlelement.xmlelement import XMLNotehead
 
 

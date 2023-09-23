@@ -1,17 +1,17 @@
 from unittest.mock import patch, Mock
 
-from musictree.accidental import Accidental
-from musictree.beat import Beat
-from musictree.chord import Chord
-from musictree.measure import Measure
-from musictree.midi import Midi
-from musictree.core import MusicTree
-from musictree.note import Note
-from musictree.part import Part
-from musictree.score import Score
-from musictree.staff import Staff
-from musictree.tests.util import IdTestCase
-from musictree.voice import Voice
+from musicscore.accidental import Accidental
+from musicscore.beat import Beat
+from musicscore.chord import Chord
+from musicscore.measure import Measure
+from musicscore.midi import Midi
+from musicscore.core import MusicTree
+from musicscore.note import Note
+from musicscore.part import Part
+from musicscore.score import Score
+from musicscore.staff import Staff
+from musicscore.tests.util import IdTestCase
+from musicscore.voice import Voice
 
 
 class TestMusicTree(IdTestCase):
@@ -153,7 +153,7 @@ class TestMusicTree(IdTestCase):
         with self.assertRaises(ValueError):
             m.get_staff(voice_number=2)
 
-    @patch('musictree.measure.Measure')
+    @patch('musicscore.measure.Measure')
     def test_staff_get_voice(self, mock_measure):
         st = Staff()
         st._parent = mock_measure

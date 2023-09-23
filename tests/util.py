@@ -10,12 +10,12 @@ import xmltodict
 from deepdiff import DeepDiff
 from quicktions import Fraction
 
-from musictree import generate_measures, Chord, C
-from musictree.exceptions import LyricsExtensionError, LyricSyllabicOrExtensionError
-from musictree.part import Id
+from musicscore import generate_measures, Chord, C
+from musicscore.exceptions import LyricsExtensionError, LyricSyllabicOrExtensionError
+from musicscore.part import Id
 from musicxml import XMLLyric, XMLExtend
 from musicxml.xmlelement.xmlelement import *
-from musictree.util import XML_DIRECTION_TYPE_AND_OTHER_NOTATIONS, XML_DIRECTION_TYPE_CLASSES, XML_OTHER_NOTATIONS, \
+from musicscore.util import XML_DIRECTION_TYPE_AND_OTHER_NOTATIONS, XML_DIRECTION_TYPE_CLASSES, XML_OTHER_NOTATIONS, \
     XML_ORNAMENT_CLASSES, XML_ARTICULATION_CLASSES, XML_TECHNICAL_CLASSES, XML_DYNAMIC_CLASSES, \
     XML_ORNAMENT_AND_OTHER_NOTATIONS
 

@@ -1,8 +1,8 @@
-from musictree.chord import Chord
-from musictree.dynamics import DYNAMICS, Dynamics
+from musicscore.chord import Chord
+from musicscore.dynamics import DYNAMICS, Dynamics
 from musicxml.xmlelement.xmlelement import XMLPp, XMLFf, XMLSfpp, XMLP, XMLF
 
-from musictree.tests.util import ChordTestCase
+from musicscore.tests.util import ChordTestCase
 
 
 class TestDynamics(ChordTestCase):

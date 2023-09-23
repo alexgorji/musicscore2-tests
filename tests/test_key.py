@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from musictree.key import Key
+from musicscore.key import Key
 
 
 class TestStaff(TestCase):

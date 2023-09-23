@@ -1,7 +1,7 @@
 from unittest import TestCase
 
-from musictree.midi import Midi
-from musictree.accidental import Accidental
+from musicscore.midi import Midi
+from musicscore.accidental import Accidental
 
 
 class TestAccidental(TestCase):
