@@ -6,15 +6,15 @@ from quicktions import Fraction
 from musicscore import BassClef, Score, Part
 from musicscore.accidental import Accidental
 from musicscore.beat import Beat
-from musicscore.chord import Chord, _split_copy, _group_chords, GraceChord
+from musicscore.chord import Chord, _split_copy, _group_chords, GraceChord, Rest
 from musicscore.exceptions import ChordHasNoParentError, DeepCopyException, ChordNotesAreAlreadyCreatedError, \
-    ChordException, MusicTreeException, ChordAddXException, ChordAddXPlacementException
+    ChordException, MusicTreeException, ChordAddXPlacementException, RestCannotSetMidiError, \
+    RestWithDisplayStepHasNoDisplayOctave, RestWithDisplayOctaveHasNoDisplayStep, GraceChordCannotHaveGraceNotes
 from musicscore.midi import Midi
 from musicscore.quarterduration import QuarterDuration
-from musicscore.tests.util import ChordTestCase, create_test_objects
+from musicscore.tests.util import ChordTestCase, create_test_objects, IdTestCase
 from musicscore.util import XML_ARTICULATION_CLASSES, XML_TECHNICAL_CLASSES, XML_DYNAMIC_CLASSES, XML_ORNAMENT_CLASSES, \
-    XML_OTHER_NOTATIONS, XML_DIRECTION_TYPE_CLASSES, XML_ORNAMENT_AND_OTHER_NOTATIONS, \
-    XML_DIRECTION_TYPE_AND_OTHER_NOTATIONS
+    XML_OTHER_NOTATIONS, XML_DIRECTION_TYPE_CLASSES
 from musicxml.xmlelement.xmlelement import *
 
 
@@ -556,6 +556,49 @@ class TestTreeChord(ChordTestCase):
                 assert n.xml_notations.xml_non_arpeggiate.type == 'top'
 
 
+class TestTreeRest(ChordTestCase):
+    def test_rest_init(self):
+        r = Rest(4)
+        r._parent = self.mock_beat
+        assert isinstance(r, Rest)
+        assert isinstance(r, Chord)
+        assert r.midis[0].value == 0
+        r.finalize()
+        n = r.notes[0]
+        assert r.display_step == r.display_octave == n.xml_object.xml_rest.xml_display_step == n.xml_object.xml_rest.xml_display_octave is None
+        assert r.quarter_duration == 4
+        r = Rest(4, display_step='C', display_octave=4)
+        r._parent = self.mock_beat
+        r.finalize()
+        n = r.notes[0]
+        assert r.display_step == n.xml_object.xml_rest.xml_display_step.value_ == 'C'
+        assert r.display_octave == n.xml_object.xml_rest.xml_display_octave.value_ == 4
+        r = Rest(4, measure='yes')
+        assert r.measure == 'yes'
+        r._parent = self.mock_beat
+        r.finalize()
+        n = r.notes[0]
+        assert n.xml_object.xml_rest.measure == 'yes'
+        with self.assertRaises(RestCannotSetMidiError):
+            Rest(midis=0, quarter_duration=2)
+        with self.assertRaises(TypeError):
+            Rest()
+        with self.assertRaises(RestWithDisplayStepHasNoDisplayOctave):
+            r = Rest(4, display_step='D')
+            r._parent = self.mock_beat
+            r.finalize()
+        with self.assertRaises(RestWithDisplayOctaveHasNoDisplayStep):
+            r = Rest(4, display_octave=4)
+            r._parent = self.mock_beat
+            r.finalize()
+        with self.assertRaises(TypeError):
+            Rest(4, display_step='H', display_octave=2)
+        with self.assertRaises(TypeError):
+            Rest(4, display_step='C', display_octave=2.2)
+        with self.assertRaises(TypeError):
+            Rest(4, display_step='C', display_octave=-2)
+
+
 class TestTies(ChordTestCase):
 
     def test_add_tie_ties_midis(self):
@@ -600,7 +643,7 @@ class TestTies(ChordTestCase):
         ch._parent = self.mock_beat
         ch.finalize()
         assert [n.is_tied for n in ch.notes] == [True, True]
-        print(ch.notes)
+        # print(ch.notes)
         ch.midis[0].remove_tie('start')
         assert [n.is_tied for n in ch.notes] == [False, True]
 
@@ -694,33 +737,35 @@ class TestSplit(TestCase):
 class TestAddGraceChord(ChordTestCase):
     def test_add_grace_chord_parameters(self):
         ch = Chord(60, 1)
-        gch = ch.add_grace_chord(midis_or_grace_chord=60)
+        g1 = gch = ch.add_grace_chord(midis_or_grace_chord=60)
         assert gch.midis[0].value == 60
         in_gch = GraceChord(61)
-        gch = ch.add_grace_chord(midis_or_grace_chord=in_gch)
+        g2 = gch = ch.add_grace_chord(midis_or_grace_chord=in_gch)
         assert gch == in_gch
-        gch = ch.add_grace_chord(midis_or_grace_chord=[62, 63])
+        g3 = gch = ch.add_grace_chord(midis_or_grace_chord=[62, 63])
         assert [m.value for m in gch.midis] == [62, 63]
-        gch = ch.add_grace_chord(64)
+        g4 = gch = ch.add_grace_chord(64)
         assert gch.midis[0].value == 64
-        gch = ch.add_grace_chord(midis_or_grace_chord=65, type_='16th')
+        g5 = gch = ch.add_grace_chord(midis_or_grace_chord=65, type_='16th')
         assert gch.midis[0].value == 65
         assert gch.type_.value_ == '16th'
         in_gch = GraceChord(61, type_='16th')
-        gch = ch.add_grace_chord(midis_or_grace_chord=in_gch)
+        g6 = gch = ch.add_grace_chord(midis_or_grace_chord=in_gch)
         assert gch == in_gch
         assert gch.type_.value_ == '16th'
         with self.assertRaises(ValueError):
             ch.add_grace_chord(midis_or_grace_chord=GraceChord(66, type_='quarter'), type_='16th')
-        gch = ch.add_grace_chord(67, type_='16th')
+        g7 = gch = ch.add_grace_chord(67, type_='16th')
         assert gch.midis[0].value == 67
         assert gch.type_.value_ == '16th'
-        gch = ch.add_grace_chord(68, type_='16th', position='after')
+        g8 = gch = ch.add_grace_chord(68, type_='16th', position='after')
         assert gch.position == 'after'
         assert gch.midis[0].value == 68
         assert gch.type_.value_ == '16th'
         with self.assertRaises(ValueError):
-            gch = ch.add_grace_chord(GraceChord(66, type_='quarter'), position='after')
+            ch.add_grace_chord(GraceChord(66, type_='quarter'), position='after')
+        assert ch.get_grace_chords(position='before') == [g1, g2, g3, g4, g5, g6, g7]
+        assert ch.get_grace_chords(position='after') == [g8]
 
     def test_add_grace_chord_before_and_after_argument(self):
         ch = Chord(60, 1)
@@ -784,7 +829,7 @@ class TestAddGraceChord(ChordTestCase):
 
     def test_error_grace_chord_add_grace_chord(self):
         gch = GraceChord(60)
-        with self.assertRaises(TypeError):
+        with self.assertRaises(GraceChordCannotHaveGraceNotes):
             gch.add_grace_chord(80)
 
     def test_grace_chords_after_to_right_beat(self):
@@ -1038,3 +1083,72 @@ class TestAddX(ChordTestCase):
         assert d.placement == 'below'
         assert xml_words.font_size == 20
         assert xml_words.relative_y == 20
+
+
+class TestAddAfterNotes(IdTestCase):
+    def test_add_after_notes(self):
+        part = Part('p1')
+        chords = [Chord([60, 62], 2), Chord(64, 2)]
+        chords[0].add_dynamics('ff')
+        [part.add_chord(ch) for ch in chords]
+        b = XMLBarline(location='middle')
+        b.xml_bar_style = 'dashed'
+        chords[0].add_after_note_xml_objects(b)
+        part.finalize()
+        m = part.get_measure(1)
+        expected = """<measure number="1">
+    <attributes>
+      <divisions>1</divisions>
+      <key>
+        <fifths>0</fifths>
+      </key>
+      <time>
+        <beats>4</beats>
+        <beat-type>4</beat-type>
+      </time>
+      <clef>
+        <sign>G</sign>
+        <line>2</line>
+      </clef>
+    </attributes>
+    <direction placement="below">
+      <direction-type>
+        <dynamics>
+          <ff />
+        </dynamics>
+      </direction-type>
+    </direction>
+    <note>
+      <pitch>
+        <step>C</step>
+        <octave>4</octave>
+      </pitch>
+      <duration>2</duration>
+      <voice>1</voice>
+      <type>half</type>
+    </note>
+    <note>
+      <chord />
+      <pitch>
+        <step>D</step>
+        <octave>4</octave>
+      </pitch>
+      <duration>2</duration>
+      <voice>1</voice>
+      <type>half</type>
+    </note>
+    <barline location="middle">
+      <bar-style>dashed</bar-style>
+    </barline>
+    <note>
+      <pitch>
+        <step>E</step>
+        <octave>4</octave>
+      </pitch>
+      <duration>2</duration>
+      <voice>1</voice>
+      <type>half</type>
+    </note>
+  </measure>
+"""
+        assert m.to_string() == expected

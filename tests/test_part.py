@@ -73,6 +73,15 @@ class TestPart(IdTestCase):
         p.name = None
         assert p.name == ''
 
+    def test_part_abbreviation(self):
+        p = Part(id='p1')
+        assert p.abbreviation is None
+        p = Part(id='p2', name='Part 1', abbreviation='p 1')
+        assert p.abbreviation == 'p 1'
+        p = Part(id='p3', name='Part 3')
+        p.abbreviation = 'p 3'
+        assert p.abbreviation == 'p 3'
+
     def test_part_and_score_part(self):
         p = Part(id='p1')
         assert isinstance(p.score_part, ScorePart)
@@ -235,6 +244,15 @@ class TestScorePart(IdTestCase):
         p.name = None
         assert p.score_part.xml_part_name.value_ == p.name == ''
 
+    def test_score_part_abbreviation(self):
+        p = Part(id='p1')
+        assert p.score_part.xml_part_abbreviation == p.abbreviation is None
+        p = Part(id='p2', name='Part 1', abbreviation='p 1')
+        assert p.score_part.xml_part_abbreviation.value_ == p.abbreviation == 'p 1'
+        p = Part(id='p3', name='Part 3')
+        p.abbreviation = 'p 3'
+        assert p.score_part.xml_part_abbreviation.value_ == p.abbreviation == 'p 3'
+
     def test_score_part_to_string(self):
         p = Part(id='p1')
         expected = """<score-part id="p1">
@@ -291,7 +309,7 @@ class TestScorePart(IdTestCase):
 
         for beat in [b for m in p.get_children() for st in m.get_children() for v in st.get_children() for b in
                      v.get_children()]:
-            beat._quantize_quarter_durations()
+            beat.quantize_quarter_durations()
             beat._split_not_writable_chords()
         expected = [QuarterDuration(3, 7), QuarterDuration(2, 7), QuarterDuration(2, 7), QuarterDuration(1, 1),
                     QuarterDuration(4, 5), QuarterDuration(1, 5), QuarterDuration(1, 1)]
@@ -328,7 +346,7 @@ class TestAddChordToPart(IdTestCase):
 
     def test_add_one_chord_quarter_duration_4(self):
         xml_file = Path(__file__).stem + '_add_quarter_duration_4.xml'
-        p = self.score.add_part(id_='part1')
+        p = self.score.add_part(id='part1')
         chord = Chord(60, 4)
         p.add_chord(chord)
         self.score.export_xml(xml_file)
@@ -340,7 +358,9 @@ class TestAddChordToPart(IdTestCase):
                                                                         'time': {'beats': '4', 'beat-type': '4'},
                                                                         'clef': {'sign': 'G', 'line': '2'}},
                                                          'note': {'pitch': {'step': 'C', 'octave': '4'},
-                                                                  'duration': '4', 'voice': '1', 'type': 'whole'}}}}
+                                                                  'duration': '4', 'voice': '1', 'type': 'whole'},
+                                                         'barline': {'@location': 'right',
+                                                                     'bar-style': 'light-heavy'}}}}
         assert output_part_xml_dict == expected
 
     def test_add_chord_to_staff_with_bass_clef(self):
@@ -461,7 +481,7 @@ class TestAddChordToPart(IdTestCase):
         sf2.chords[1].clef = BassClef()
         sf2.chords[2].clef = TrebleClef()
         score = Score()
-        part = score.add_part(id_='part-1')
+        part = score.add_part(id='part-1')
         for index, simpleformat in enumerate([sf1, sf2]):
             for chord in simpleformat.chords:
                 part.add_chord(chord, staff_number=index + 1)
