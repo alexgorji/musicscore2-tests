@@ -7,9 +7,10 @@ from musicscore import BassClef, Score, Part
 from musicscore.accidental import Accidental
 from musicscore.beat import Beat
 from musicscore.chord import Chord, _split_copy, _group_chords, GraceChord, Rest
-from musicscore.exceptions import ChordHasNoParentError, DeepCopyException, ChordNotesAreAlreadyCreatedError, \
-    ChordException, MusicTreeException, ChordAddXPlacementException, RestCannotSetMidiError, \
-    RestWithDisplayStepHasNoDisplayOctave, RestWithDisplayOctaveHasNoDisplayStep, GraceChordCannotHaveGraceNotes
+from musicscore.exceptions import ChordHasNoParentError, DeepCopyException, ChordException, MusicTreeException, \
+    ChordAddXPlacementException, RestCannotSetMidiError, \
+    RestWithDisplayStepHasNoDisplayOctave, RestWithDisplayOctaveHasNoDisplayStep, GraceChordCannotHaveGraceNotesError, \
+    AlreadyFinalizedError
 from musicscore.midi import Midi
 from musicscore.quarterduration import QuarterDuration
 from musicscore.tests.util import ChordTestCase, create_test_objects, IdTestCase
@@ -352,14 +353,6 @@ class TestTreeChord(ChordTestCase):
         assert ch.notes[0].xml_lyric is not None
         assert ch.notes[0].xml_lyric.xml_text.value_ == 'test'
 
-    def test_add_lyrics_after_creating_notes(self):
-        ch = Chord(60, 1)
-        ch._parent = self.mock_beat
-        lyrics1 = ch.add_lyric('one')
-        ch.finalize()
-        lyrics2 = ch.add_lyric('two')
-        assert ch.notes[0].find_children('XMLLyric') == [lyrics1, lyrics2]
-
     def test_get_staff_number(self):
         ch = Chord(60, 2)
         ch._parent = self.mock_beat
@@ -416,7 +409,7 @@ class TestTreeChord(ChordTestCase):
 
         chord._parent = self.mock_beat
         chord.finalize()
-        with self.assertRaises(ChordNotesAreAlreadyCreatedError):
+        with self.assertRaises(AlreadyFinalizedError):
             chord.add_midi(80)
 
     def test_add_direction_type(self):
@@ -728,7 +721,7 @@ class TestSplit(TestCase):
 
         ch = Chord(midis=60, quarter_duration=5)
         beats = [Beat(1), Beat(1), Beat(1), Beat(1)]
-        quarter_durations = ch.quarter_duration.get_beatwise_sections(beats=beats)
+        quarter_durations = ch.quarter_duration._get_beatwise_sections(beats=beats)
         ch.quarter_duration = quarter_durations[0][0]
         copied = _split_copy(ch, quarter_durations[1])
         assert [ch.quarter_duration, copied.quarter_duration] == [4, 1]
@@ -746,24 +739,24 @@ class TestAddGraceChord(ChordTestCase):
         assert [m.value for m in gch.midis] == [62, 63]
         g4 = gch = ch.add_grace_chord(64)
         assert gch.midis[0].value == 64
-        g5 = gch = ch.add_grace_chord(midis_or_grace_chord=65, type_='16th')
+        g5 = gch = ch.add_grace_chord(midis_or_grace_chord=65, type='16th')
         assert gch.midis[0].value == 65
-        assert gch.type_.value_ == '16th'
-        in_gch = GraceChord(61, type_='16th')
+        assert gch.type.value_ == '16th'
+        in_gch = GraceChord(61, type='16th')
         g6 = gch = ch.add_grace_chord(midis_or_grace_chord=in_gch)
         assert gch == in_gch
-        assert gch.type_.value_ == '16th'
+        assert gch.type.value_ == '16th'
         with self.assertRaises(ValueError):
-            ch.add_grace_chord(midis_or_grace_chord=GraceChord(66, type_='quarter'), type_='16th')
-        g7 = gch = ch.add_grace_chord(67, type_='16th')
+            ch.add_grace_chord(midis_or_grace_chord=GraceChord(66, type='quarter'), type='16th')
+        g7 = gch = ch.add_grace_chord(67, type='16th')
         assert gch.midis[0].value == 67
-        assert gch.type_.value_ == '16th'
-        g8 = gch = ch.add_grace_chord(68, type_='16th', position='after')
+        assert gch.type.value_ == '16th'
+        g8 = gch = ch.add_grace_chord(68, type='16th', position='after')
         assert gch.position == 'after'
         assert gch.midis[0].value == 68
-        assert gch.type_.value_ == '16th'
+        assert gch.type.value_ == '16th'
         with self.assertRaises(ValueError):
-            ch.add_grace_chord(GraceChord(66, type_='quarter'), position='after')
+            ch.add_grace_chord(GraceChord(66, type='quarter'), position='after')
         assert ch.get_grace_chords(position='before') == [g1, g2, g3, g4, g5, g6, g7]
         assert ch.get_grace_chords(position='after') == [g8]
 
@@ -784,12 +777,12 @@ class TestAddGraceChord(ChordTestCase):
         with self.assertRaises(TypeError):
             ch.add_grace_chord()
         gc1 = ch.add_grace_chord(60)
-        gc2 = ch.add_grace_chord(61, type_='quarter')
+        gc2 = ch.add_grace_chord(61, type='quarter')
         gc3 = ch.add_grace_chord(GraceChord(midis=[62, 64]))
-        gc4 = ch.add_grace_chord(GraceChord(63, type_='16th'))
+        gc4 = ch.add_grace_chord(GraceChord(63, type='16th'))
         all_gcs = [gc1, gc2, gc3, gc4]
         assert [[m.value for m in gc.midis] for gc in all_gcs] == [[60], [61], [62, 64], [63]]
-        assert [gc.type_.value_ if gc.type_ else None for gc in all_gcs] == [None, 'quarter', None, '16th']
+        assert [gc.type.value_ if gc.type else None for gc in all_gcs] == [None, 'quarter', None, '16th']
 
     def test_add_grace_chord_finalize(self):
         part = Part('p1')
@@ -829,7 +822,7 @@ class TestAddGraceChord(ChordTestCase):
 
     def test_error_grace_chord_add_grace_chord(self):
         gch = GraceChord(60)
-        with self.assertRaises(GraceChordCannotHaveGraceNotes):
+        with self.assertRaises(GraceChordCannotHaveGraceNotesError):
             gch.add_grace_chord(80)
 
     def test_grace_chords_after_to_right_beat(self):
@@ -852,12 +845,12 @@ class TestAddX(ChordTestCase):
         ch.add_x(XML_DIRECTION_TYPE_CLASSES[0]())
 
     def test_add_x_placement(self):
-        def add_type_and_placement(type_, xml_object=None):
-            above_part = Part(f"above-{type_}-{xml_object.name}") if xml_object else Part(f"above-{type_}")
-            below_part = Part(f"below-{type_}-{xml_object.name}") if xml_object else Part(f"below-{type_}")
+        def add_type_and_placement(type, xml_object=None):
+            above_part = Part(f"above-{type}-{xml_object.name}") if xml_object else Part(f"above-{type}")
+            below_part = Part(f"below-{type}-{xml_object.name}") if xml_object else Part(f"below-{type}")
             if not xml_object:
-                above_objects = create_test_objects(type_)
-                below_objects = create_test_objects(type_)
+                above_objects = create_test_objects(type)
+                below_objects = create_test_objects(type)
             else:
                 above_objects = [xml_object]
                 below_objects = [xml_object.__deepcopy__()]
@@ -865,21 +858,21 @@ class TestAddX(ChordTestCase):
             for obj in above_objects:
                 ch = Chord(60, 1)
                 try:
-                    ch.add_x(obj, placement='above', parent_type=type_)
+                    ch.add_x(obj, placement='above', parent_type=type)
                 except ChordAddXPlacementException:
-                    ch.add_x(obj, placement=None, parent_type=type_)
+                    ch.add_x(obj, placement=None, parent_type=type)
                 above_part.add_chord(ch)
             for obj in below_objects:
                 ch = Chord(60, 1)
                 try:
-                    ch.add_x(obj, placement='below', parent_type=type_)
+                    ch.add_x(obj, placement='below', parent_type=type)
                 except ChordAddXPlacementException:
-                    ch.add_x(obj, placement=None, parent_type=type_)
+                    ch.add_x(obj, placement=None, parent_type=type)
                 below_part.add_chord(ch)
 
             above_part.finalize()
             below_part.finalize()
-            if type_ == 'direction_type':
+            if type == 'direction_type':
                 for p in ['above', 'below']:
                     directions = [d for m in eval(f"{p}_part.get_children()") for d in
                                   [c for c in m.xml_object.get_children() if isinstance(c, XMLDirection)]]
@@ -887,7 +880,7 @@ class TestAddX(ChordTestCase):
                     for x in directions:
                         assert x.placement == p
 
-            elif type_ in ['technical', 'ornament', 'articulation']:
+            elif type in ['technical', 'ornament', 'articulation']:
                 for p in ['above', 'below']:
                     notations = [notation for measure in eval(f'{p}_part').get_children() for note in
                                  [x for x in measure.xml_object.get_children() if isinstance(x, XMLNote)] for notation
@@ -898,7 +891,7 @@ class TestAddX(ChordTestCase):
                         if x.get_children()[0].get_children()[0].__class__ not in [XMLFret, XMLBend]:
                             assert x.get_children()[0].get_children()[0].placement == p
             else:
-                raise NotImplementedError(f'testing type_ {type_}')
+                raise NotImplementedError(f'testing type {type}')
 
         # direction_type objects
         add_type_and_placement('direction_type')
@@ -1093,7 +1086,7 @@ class TestAddAfterNotes(IdTestCase):
         [part.add_chord(ch) for ch in chords]
         b = XMLBarline(location='middle')
         b.xml_bar_style = 'dashed'
-        chords[0].add_after_note_xml_objects(b)
+        chords[0].add_xml_element_after_notes(b)
         part.finalize()
         m = part.get_measure(1)
         expected = """<measure number="1">

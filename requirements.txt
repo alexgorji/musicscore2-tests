@@ -1,4 +1,4 @@
-musicscore==2.0
+musicscore==2.0.1
 pytest
 xmltodict
 deepdiff
