@@ -1,11 +1,16 @@
+import uuid
 from unittest import TestCase
 
-from musicscore.beat import Beat
+from musicscore import Part
+from musicscore.beat import Beat, _convert_to_quarter_duration_splittables_dictionary, get_chord_group_subdivision
 from musicscore.chord import Chord
-from musicscore.exceptions import AddChordError, VoiceIsFullError
+from musicscore.config import SPLITTABLES
+from musicscore.exceptions import AddChordError, VoiceIsFullError, BeatNotFullError, QuarterDurationIsNotWritable
 from musicscore.measure import Measure
 from musicscore.quarterduration import QuarterDuration
 from musicscore.staff import Staff
+from musicscore.tests.util import IdTestCase
+from musicscore.tuplet import Tuplet
 from musicscore.voice import Voice
 
 
@@ -56,6 +61,60 @@ class TestBeat(TestCase):
         assert v.get_children()[1].offset == 1 / 4
         assert v.get_children()[2].offset == 1 / 4 + 1 / 8
         assert v.get_children()[3].offset == 1 / 4 + 1 / 8 + 1 / 2
+
+    def test_beat_fill_with_rest(self):
+        b = Beat()
+        b._parent = Voice()
+        assert not b.is_filled
+        b.fill_with_rests()
+        assert b.is_filled
+
+    def test_get_chord_groups_subdivision(self):
+        assert get_chord_group_subdivision([Chord(60, qd) for qd in [2 / 5, 2 / 5, 1 / 5]]) == 5
+        assert get_chord_group_subdivision([Chord(60, qd) for qd in [4 / 5, 4 / 5, 2 / 5]]) == 5
+        assert get_chord_group_subdivision([Chord(60, qd) for qd in [1 / 5, 1 / 5, 1 / 10]]) == 5
+        assert get_chord_group_subdivision(
+            [Chord(60, qd) for qd in [1 / 6, 1 / 6, 1 / 6, 1 / 10, 3 / 10, 1 / 10]]) is None
+
+
+class TestBeatUpdateChords(IdTestCase):
+    def test_beat_update_chord_types(self):
+        p = Part('p1')
+        [p.add_chord(ch) for ch in [Chord(60, 0.5), Chord(70, 0.5)]]
+        beat = p.get_beat(measure_number=1, staff_number=1, voice_number=1, beat_number=1)
+        assert {ch.type for ch in beat.get_chords()} == {None}
+        beat._update_chord_types()
+        assert {ch.type for ch in beat.get_chords()} == {'eighth'}
+        [p.add_chord(ch) for ch in [Chord(60, 0.5), Chord(70, 0.5)]]
+        beat = p.get_beat(measure_number=1, staff_number=1, voice_number=1, beat_number=2)
+        beat.get_chords()[0].type = 'quarter'
+        beat._update_chord_types()
+        assert [ch.type for ch in beat.get_chords()] == ['quarter', 'eighth']
+
+    def test_beat_update_chord_number_of_dots(self):
+        p = Part('p1')
+        [p.add_chord(Chord([60, 61], qd)) for qd in [1, 0.75, 0.25, 0.875, 0.125]]
+        assert {ch.number_of_dots for ch in p.get_chords()} == {None}
+        for b in p.get_beats():
+            try:
+                b._update_chord_number_of_dots()
+            except BeatNotFullError:
+                pass
+        assert [ch.number_of_dots for ch in p.get_chords()] == [0, 1, 0, 2, 0]
+        p = Part('p2')
+        ch = Chord(60, 1)
+        ch.number_of_dots = 3
+        p.add_chord(ch)
+        beat = p.get_beats()[0]
+        beat._update_chord_number_of_dots()
+        assert beat.get_chords()[0].number_of_dots == 3
+
+    # def test_beat_update_chord_tuplets(self):
+    #     self.fail()
+
+
+class TestBeatUpdateChordBeams(TestCase):
+    pass
 
 
 class TestBeatAddChild(TestCase):
@@ -246,3 +305,84 @@ class TestBeatSplitChord(TestCase):
         b = Beat()
         with self.assertRaises(AddChordError):
             b.add_chord()
+
+    def test_convert_splittables_dictionary(self):
+        SPLITTABLES = {
+            (0, 1): {
+                (5, 6): [(3, 6), (2, 6)],
+            },
+            (1, 6): {
+                (4, 6): [(2, 6), (2, 6)],
+                (5, 6): [(2, 6), (3, 6)],
+            },
+            (2, 6): {
+                (3, 6): [(2, 6), (1, 6)],
+                (5, 6): [(2, 6), (3, 6)],
+            }
+        }
+
+        expected = {
+            QuarterDuration(0, 1): {
+                QuarterDuration(5, 6): [QuarterDuration(3, 6), QuarterDuration(2, 6)],
+            },
+            QuarterDuration(1, 6): {
+                QuarterDuration(4, 6): [QuarterDuration(2, 6), QuarterDuration(2, 6)],
+                QuarterDuration(5, 6): [QuarterDuration(2, 6), QuarterDuration(3, 6)],
+            },
+            QuarterDuration(2, 6): {
+                QuarterDuration(3, 6): [QuarterDuration(2, 6), QuarterDuration(1, 6)],
+                QuarterDuration(5, 6): [QuarterDuration(2, 6), QuarterDuration(3, 6)],
+            }
+        }
+        assert expected == _convert_to_quarter_duration_splittables_dictionary(SPLITTABLES)
+
+    def test_all_splits(self):
+        for key, value in SPLITTABLES.items():
+            for k, v in value.items():
+                p = Part(f'p{uuid.uuid4()}')
+                qds = [QuarterDuration(*key), QuarterDuration(*k)]
+                remaining_qd = QuarterDuration(1 - sum(qds))
+                if remaining_qd < 0:
+                    remaining_qd += 1
+                if remaining_qd > 0:
+                    qds.append(remaining_qd)
+                for qd in qds:
+                    if qd:
+                        p.add_chord(Chord(70, qd))
+                p.finalize()
+                assert sum([ch.quarter_duration for ch in p.get_beats()[0].get_chords() if not ch.is_rest]) == 1
+
+
+class TestNotImplementedTuplets(IdTestCase):
+    def test_writing_subdivision_17(self):
+        factors = [1, 2, 3, 4, 4, 3]
+        qds = [QuarterDuration(x, 17) for x in factors]
+        chords = [Chord(60, qd) for qd in qds]
+        [ch.add_lyric(x) for ch, x in zip(chords, factors)]
+        p = Part('p1')
+        [p.add_chord(ch) for ch in chords]
+        with self.assertRaises(QuarterDurationIsNotWritable):
+            p.finalize()
+        for ch in chords:
+            if ch.quarter_duration == QuarterDuration(1, 17):
+                ch.type = '64th'
+                ch.number_of_dots = 0
+            elif ch.quarter_duration == QuarterDuration(2, 17):
+                ch.type = '32nd'
+                ch.number_of_dots = 0
+            elif ch.quarter_duration == QuarterDuration(3, 17):
+                ch.type = '32nd'
+                ch.number_of_dots = 1
+            elif ch.quarter_duration == QuarterDuration(4, 17):
+                ch.type = '16th'
+                ch.number_of_dots = 0
+
+            ch.tuplet = Tuplet(17, 16, '64th')
+
+        p = Part('p2')
+        [p.add_chord(ch) for ch in chords]
+        p.finalize()
+        beat = p.get_beats()[0]
+        for ch in beat.get_chords():
+            ch.check_printed_duration()
+            ch.check_number_of_beams()

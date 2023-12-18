@@ -6,7 +6,9 @@ from musicscore import Part, Time
 from musicscore.chord import Chord
 from musicscore.measure import Measure
 from musicscore.tests.test_beat import create_voice
-from musicscore.tests.util import generate_all_quintuplets, generate_all_triplets, generate_all_sextuplets, IdTestCase
+from musicscore.tests.util import IdTestCase
+from musicscore.tests.util_subdivisions import generate_all_quintuplets_manually, generate_all_sextuplets_manually, \
+    generate_all_triplets_manually
 
 
 class TestTuplets(IdTestCase):
@@ -26,7 +28,7 @@ class TestTuplets(IdTestCase):
       <normal-type>eighth</normal-type>
     </time-modification>
     <notations>
-      <tuplet bracket="yes" number="1" type="start" />
+      <tuplet type="start" number="1" bracket="yes" />
     </notations>
   </note>
 """
@@ -44,7 +46,7 @@ class TestTuplets(IdTestCase):
       <normal-type>eighth</normal-type>
     </time-modification>
     <notations>
-      <tuplet number="1" type="stop" />
+      <tuplet type="stop" number="1" />
     </notations>
   </note>
 """
@@ -78,7 +80,7 @@ class TestTuplets(IdTestCase):
 
     def test_chord_quintuplet(self):
         measures = []
-        for index, quintuplet in enumerate(generate_all_quintuplets()):
+        for index, quintuplet in enumerate(generate_all_quintuplets_manually()):
             m = Measure(index + 1)
             for q in quintuplet:
                 m._add_chord(Chord(midis=60, quarter_duration=q))
@@ -86,14 +88,15 @@ class TestTuplets(IdTestCase):
             measures.append(m)
 
         for m in measures:
-            for ch in m.get_chords():
+            chords = [chord for chord in m.get_chords() if not chord.is_rest]
+            for ch in chords:
                 note = ch.notes[0]
                 assert note.xml_time_modification is not None
                 assert note.xml_time_modification.xml_actual_notes.value_ == 5
                 assert note.xml_time_modification.xml_normal_notes.value_ == 4
                 assert note.xml_time_modification.xml_normal_type.value_ == '16th'
-            first_note = m.get_chords()[0].notes[0]
-            last_note = m.get_chords()[-1].notes[0]
+            first_note = chords[0].notes[0]
+            last_note = chords[-1].notes[0]
             t1, t2 = first_note.xml_notations.xml_tuplet, last_note.xml_notations.xml_tuplet
             assert t1.type == 'start'
             assert t2.type == 'stop'
@@ -106,8 +109,8 @@ class TestTuplets(IdTestCase):
         m1._split_not_writable_chords()
         m1.finalize()
         b = m1.get_voice(staff_number=1, voice_number=1).get_children()[0]
-        assert b.get_children() == m1.get_chords()
-        n1, n2, n3 = [ch.notes[0] for ch in m1.get_chords()]
+        assert b.get_children() == m1.get_chords()[:3]
+        n1, n2, n3 = [ch.notes[0] for ch in m1.get_chords()[:3]]
         # print([n.quarter_duration for n in [n1, n2, n3]])
         assert n1.xml_notations.xml_tuplet.type == 'start'
         assert n3.xml_notations.xml_tuplet.type == 'stop'
@@ -124,7 +127,7 @@ class TestTuplets(IdTestCase):
             m1._add_chord(Chord(midis=60, quarter_duration=q))
         m1._split_not_writable_chords()
         m1.finalize()
-        n1, n2, n3 = [ch.notes[0] for ch in m1.get_chords()]
+        n1, n2, n3 = [ch.notes[0] for ch in m1.get_chords()[:3]]
         assert n1.xml_notations.xml_tuplet.type == 'start'
         assert n3.xml_notations.xml_tuplet.type == 'stop'
         assert n1.is_tied
@@ -135,7 +138,7 @@ class TestTuplets(IdTestCase):
 
     def test_chord_sextuplets(self):
         measures = []
-        for index, sextuplet in enumerate(generate_all_sextuplets()):
+        for index, sextuplet in enumerate(generate_all_sextuplets_manually()):
             m = Measure(index + 1)
             for q in sextuplet:
                 m._add_chord(Chord(midis=60, quarter_duration=q))
@@ -144,14 +147,15 @@ class TestTuplets(IdTestCase):
             measures.append(m)
 
         for m in measures:
-            for ch in m.get_chords():
+            chords = [chord for chord in m.get_chords() if not chord.is_rest]
+            for ch in chords:
                 note = ch.notes[0]
                 assert note.xml_time_modification is not None
                 assert note.xml_time_modification.xml_actual_notes.value_ == 6
                 assert note.xml_time_modification.xml_normal_notes.value_ == 4
                 assert note.xml_time_modification.xml_normal_type.value_ == '16th'
-            first_note = m.get_chords()[0].notes[0]
-            last_note = m.get_chords()[-1].notes[0]
+            first_note = chords[0].notes[0]
+            last_note = chords[-1].notes[0]
             t1, t2 = first_note.xml_notations.xml_tuplet, last_note.xml_notations.xml_tuplet
             assert t1.type == 'start'
             assert t2.type == 'stop'
@@ -195,7 +199,7 @@ class TestTuplets(IdTestCase):
     def test_group_beams_triplets(self):
         v1 = create_voice()
         beats = v1.update_beats(1, 1, 1)
-        for quarter_duration in [q for group in generate_all_triplets() for q in group]:
+        for quarter_duration in [q for group in generate_all_triplets_manually() for q in group]:
             v1._add_chord(Chord(60, quarter_duration))
         v1.up.up._update_divisions()
         for index, beat in enumerate(beats):

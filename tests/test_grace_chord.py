@@ -1,4 +1,4 @@
-from musicscore import Part
+from musicscore import Part, QuarterDuration
 from musicscore.chord import GraceChord
 from musicscore.exceptions import ChordException
 from musicscore.tests.util import IdTestCase
@@ -7,8 +7,9 @@ from musicxml.xmlelement.xmlelement import XMLType
 
 class TestGraceChord(IdTestCase):
     def test_grace_chord_init(self):
-        gch = GraceChord()
+        gch = GraceChord(60)
         assert gch.quarter_duration == 0
+        assert isinstance(gch.quarter_duration, QuarterDuration)
         gch.quarter_duration = 0
         with self.assertRaises(ChordException):
             gch.quarter_duration = 2
@@ -16,13 +17,6 @@ class TestGraceChord(IdTestCase):
     def test_grace_chord_type(self):
         p = Part('p1')
         gch = GraceChord(60)
-
-        gch.type = '16th'
-        assert isinstance(gch.type, XMLType)
-        gch.type = XMLType('eighth')
-        assert isinstance(gch.type, XMLType)
-        gch.type = None
-        assert gch.type is None
 
         gch.type = '16th'
         p.add_chord(gch)

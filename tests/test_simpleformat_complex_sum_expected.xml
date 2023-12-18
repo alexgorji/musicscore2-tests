@@ -151,7 +151,6 @@
         <voice>1</voice>
         <type>eighth</type>
         <staff>2</staff>
-        <beam number="1">begin</beam>
       </note>
       <note>
         <pitch>
@@ -163,7 +162,6 @@
         <voice>1</voice>
         <type>eighth</type>
         <staff>2</staff>
-        <beam number="1">end</beam>
         <notations>
           <tied type="start" />
         </notations>
@@ -1005,6 +1003,14 @@
         <accidental>sharp</accidental>
         <staff>1</staff>
       </note>
+      <note>
+        <rest />
+        <duration>3</duration>
+        <voice>1</voice>
+        <type>half</type>
+        <dot />
+        <staff>1</staff>
+      </note>
       <backup>
         <duration>4</duration>
       </backup>
@@ -1013,6 +1019,14 @@
         <duration>1</duration>
         <voice>1</voice>
         <type>quarter</type>
+        <staff>2</staff>
+      </note>
+      <note>
+        <rest />
+        <duration>3</duration>
+        <voice>1</voice>
+        <type>half</type>
+        <dot />
         <staff>2</staff>
       </note>
       <backup>
@@ -1028,6 +1042,14 @@
         <voice>1</voice>
         <type>quarter</type>
         <accidental>sharp</accidental>
+        <staff>3</staff>
+      </note>
+      <note>
+        <rest />
+        <duration>3</duration>
+        <voice>1</voice>
+        <type>half</type>
+        <dot />
         <staff>3</staff>
       </note>
       <barline location="right">
